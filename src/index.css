@@ -1,0 +1,212 @@
+@import url('https://fonts.googleapis.com/css2?family=Manrope:wght@500;600;700;800&family=Sora:wght@600;700;800&display=swap');
+
+:root {
+  --shell-bg: #11161d;
+  --shell-elevated: #1b222c;
+  --surface-primary: #f3f1eb;
+  --surface-secondary: #e7e3da;
+  --text-primary: #0f1720;
+  --text-muted: #7d8b99;
+  --text-muted-soft: rgba(125, 139, 153, 0.82);
+  --accent-steel: #49627c;
+  --accent-success: #39b36b;
+  --accent-success-pressed: #2d9959;
+  --accent-danger: #e55a5a;
+  --border-subtle: rgba(17, 22, 29, 0.12);
+  --shadow-soft: 0 28px 60px rgba(7, 12, 18, 0.28);
+  --shadow-card: 0 14px 30px rgba(17, 22, 29, 0.08);
+  --font-size-base: 13px;
+  --font-size-sm: 11px;
+  --font-size-xs: 10px;
+  --font-size-lg: 15px;
+  --font-size-xl: 24px;
+  font-family: 'Manrope', sans-serif;
+  font-size: var(--font-size-base);
+  line-height: 1.45;
+  color: var(--text-primary);
+  background: var(--shell-bg);
+  font-synthesis: none;
+  text-rendering: optimizeLegibility;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+html,
+body,
+#root {
+  min-height: 100svh;
+}
+
+body {
+  margin: 0;
+  font-size: 1rem;
+}
+
+img,
+svg {
+  display: block;
+}
+
+svg {
+  width: 20px;
+  height: 20px;
+}
+
+a {
+  color: inherit;
+}
+
+h1,
+h2,
+h3,
+strong {
+  margin: 0;
+  font-family: 'Sora', sans-serif;
+  line-height: 1.12;
+}
+
+h1 {
+  font-size: var(--font-size-xl);
+}
+
+h2 {
+  font-size: 1.24rem;
+}
+
+h3 {
+  font-size: 1.06rem;
+}
+
+small {
+  font-size: 0.78rem;
+}
+
+p {
+  margin: 0;
+}
+
+button,
+input,
+select,
+textarea {
+  font: inherit;
+}
+
+.site-shell {
+  position: relative;
+  min-height: 100svh;
+  padding: 20px;
+  display: grid;
+  place-items: center;
+  overflow: hidden;
+  background:
+    radial-gradient(circle at top left, rgba(73, 98, 124, 0.34), transparent 28%),
+    radial-gradient(circle at bottom right, rgba(57, 179, 107, 0.22), transparent 24%),
+    linear-gradient(180deg, #0d1218, #11161d 55%, #0b1015);
+}
+
+.site-shell__orb,
+.site-shell__grid {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+}
+
+.site-shell__orb--one {
+  background: radial-gradient(circle at 20% 20%, rgba(57, 179, 107, 0.2), transparent 18%);
+}
+
+.site-shell__orb--two {
+  background: radial-gradient(circle at 80% 72%, rgba(73, 98, 124, 0.28), transparent 20%);
+}
+
+.site-shell__grid {
+  opacity: 0.18;
+  background-image:
+    linear-gradient(rgba(255, 255, 255, 0.06) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(255, 255, 255, 0.06) 1px, transparent 1px);
+  background-size: 32px 32px;
+  mask-image: radial-gradient(circle at center, black, transparent 78%);
+}
+
+.mobile-frame {
+  position: relative;
+  width: min(100%, 430px);
+  height: calc(100svh - 40px);
+  background: var(--surface-primary);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 32px;
+  overflow: hidden;
+  box-shadow: var(--shadow-soft);
+}
+
+.brand-mark {
+  display: inline-flex;
+  align-items: center;
+  gap: 12px;
+  font-family: 'Sora', sans-serif;
+  font-weight: 700;
+  letter-spacing: -0.03em;
+}
+
+.brand-mark__icon {
+  position: relative;
+  width: 42px;
+  height: 42px;
+  border-radius: 14px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  background: linear-gradient(180deg, #2e3946, #151b22);
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.06);
+}
+
+.brand-mark__dot {
+  position: absolute;
+  border-radius: 999px;
+}
+
+.brand-mark__dot--one {
+  width: 18px;
+  height: 18px;
+  background: linear-gradient(180deg, #56d489, var(--accent-success));
+}
+
+.brand-mark__dot--two {
+  width: 7px;
+  height: 7px;
+  top: 9px;
+  left: 10px;
+  background: #11271a;
+}
+
+.brand-mark__dot--three {
+  width: 7px;
+  height: 7px;
+  right: 10px;
+  bottom: 10px;
+  background: #11271a;
+}
+
+.brand-mark__text {
+  font-size: 1rem;
+}
+
+@media (max-width: 460px) {
+  .site-shell {
+    padding: 0;
+  }
+
+  .mobile-frame {
+    width: 100%;
+    height: 100svh;
+    border-radius: 0;
+    border: 0;
+  }
+}
