@@ -7,6 +7,7 @@ import { NotificationProvider } from './features/notifications/context'
 import { canViewRoute, findAppRoute } from './lib/access'
 import { ThemeProvider } from './theme-context'
 import {
+  AIChatPage,
   ChecklistBatchDetailPage,
   ChecklistPage,
   DashboardPage,
@@ -102,6 +103,7 @@ function App() {
                   <Route path="checklist" element={<GuardedAppRoute path="/app/checklist"><ChecklistPage /></GuardedAppRoute>} />
                   <Route path="checklist/batches/:batchId" element={<GuardedAppRoute path="/app/checklist"><ChecklistBatchDetailPage /></GuardedAppRoute>} />
                   <Route path="discord-links" element={<GuardedAppRoute path="/app/discord-links"><DiscordLinksPage /></GuardedAppRoute>} />
+                  <Route path="ai-chat" element={<GuardedAppRoute path="/app/ai-chat"><AIChatPage /></GuardedAppRoute>} />
                   <Route path="settings" element={<GuardedAppRoute path="/app/settings"><SettingsPage /></GuardedAppRoute>} />
                 </Route>
                 <Route path="*" element={<Navigate to="/" replace />} />

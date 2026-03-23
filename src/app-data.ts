@@ -21,6 +21,7 @@ export type IconName =
   | 'globe'
   | 'eye'
   | 'eye-off'
+  | 'chat'
 
 export interface NavItem {
   label: string

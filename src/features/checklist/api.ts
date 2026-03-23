@@ -70,8 +70,24 @@ export interface ChecklistBatchDetailResponse {
   }>
 }
 
-export function fetchChecklistBatches(accessToken: string, orgId: number) {
-  return requestJson<ChecklistBatchesResponse>(withOrgQuery('/checklist/batches', orgId), { method: 'GET' }, accessToken)
+export function fetchChecklistBatches(
+  accessToken: string,
+  orgId: number,
+  filters?: { projectId?: number; status?: string; search?: string },
+) {
+  const query = new URLSearchParams()
+  query.set('org_id', `${orgId}`)
+  if ((filters?.projectId ?? 0) > 0) {
+    query.set('project_id', `${filters?.projectId}`)
+  }
+  if (filters?.status) {
+    query.set('status', filters.status)
+  }
+  if (filters?.search) {
+    query.set('q', filters.search)
+  }
+
+  return requestJson<ChecklistBatchesResponse>(`/checklist/batches?${query.toString()}`, { method: 'GET' }, accessToken)
 }
 
 export function fetchChecklistBatch(accessToken: string, orgId: number, batchId: number) {

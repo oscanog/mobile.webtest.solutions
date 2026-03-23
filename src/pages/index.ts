@@ -7,6 +7,7 @@ export {
   SignupPage,
 } from './auth'
 export {
+  AIChatPage,
   ChecklistBatchDetailPage,
   ChecklistPage,
   DashboardPage,

@@ -9,21 +9,16 @@ export interface OpenClawRuntimePayload {
       default_model_id: number | null
       notes: string | null
       discord_bot_token: string
+      ai_chat: {
+        is_enabled: boolean
+        default_provider_config_id: number | null
+        default_model_id: number | null
+        assistant_name: string
+        system_prompt: string
+      }
     }
-    providers: Array<{
-      id: number
-      provider_key: string
-      display_name: string
-      provider_type: string
-      is_enabled: boolean
-    }>
-    models: Array<{
-      id: number
-      display_name: string
-      model_id: string
-      is_enabled: boolean
-      is_default: boolean
-    }>
+    providers: OpenClawProvider[]
+    models: OpenClawModel[]
     channels: Array<{
       id: number
       guild_id: string
@@ -69,8 +64,54 @@ export interface OpenClawRuntimePayload {
   } | null
 }
 
+export interface OpenClawProvider {
+  id: number
+  provider_key: string
+  display_name: string
+  provider_type: string
+  base_url?: string
+  api_key?: string
+  is_enabled: boolean
+  supports_model_sync?: boolean
+}
+
+export interface OpenClawModel {
+  id: number
+  provider_config_id: number
+  display_name: string
+  model_id: string
+  supports_vision: boolean
+  supports_json_output: boolean
+  is_enabled: boolean
+  is_default: boolean
+}
+
+export interface OpenClawRuntimeUpdatePayload {
+  is_enabled?: boolean
+  discord_bot_token?: string
+  default_provider_config_id?: number | null
+  default_model_id?: number | null
+  notes?: string
+  ai_chat_enabled?: boolean
+  ai_chat_default_provider_config_id?: number | null
+  ai_chat_default_model_id?: number | null
+  ai_chat_assistant_name?: string
+  ai_chat_system_prompt?: string
+}
+
 export function fetchOpenClawRuntime(accessToken: string) {
   return requestJson<OpenClawRuntimePayload>('/admin/openclaw/runtime', { method: 'GET' }, accessToken)
+}
+
+export function saveOpenClawRuntime(accessToken: string, payload: OpenClawRuntimeUpdatePayload) {
+  return requestJson<{ saved: boolean; runtime: OpenClawRuntimePayload['runtime'] }>(
+    '/admin/openclaw/runtime',
+    {
+      method: 'PUT',
+      body: JSON.stringify(payload),
+    },
+    accessToken,
+  )
 }
 
 export function requestOpenClawReload(accessToken: string) {
@@ -79,6 +120,52 @@ export function requestOpenClawReload(accessToken: string) {
     {
       method: 'POST',
       body: JSON.stringify({ reason: 'mobileweb_manual_reload' }),
+    },
+    accessToken,
+  )
+}
+
+export function saveOpenClawProvider(
+  accessToken: string,
+  payload: {
+    provider_id?: number
+    provider_key: string
+    display_name: string
+    provider_type: string
+    base_url?: string
+    api_key?: string
+    is_enabled?: boolean
+    supports_model_sync?: boolean
+  },
+) {
+  return requestJson<{ saved: boolean; providers: OpenClawProvider[] }>(
+    '/admin/openclaw/providers',
+    {
+      method: 'POST',
+      body: JSON.stringify(payload),
+    },
+    accessToken,
+  )
+}
+
+export function saveOpenClawModel(
+  accessToken: string,
+  payload: {
+    provider_config_id: number
+    model_id?: number
+    remote_model_id: string
+    display_name: string
+    supports_vision?: boolean
+    supports_json_output?: boolean
+    is_enabled?: boolean
+    is_default?: boolean
+  },
+) {
+  return requestJson<{ saved: boolean; models: OpenClawModel[] }>(
+    '/admin/openclaw/models',
+    {
+      method: 'POST',
+      body: JSON.stringify(payload),
     },
     accessToken,
   )

@@ -22,6 +22,11 @@ import {
 import {
   fetchOpenClawRuntime,
   requestOpenClawReload,
+  saveOpenClawModel,
+  saveOpenClawProvider,
+  saveOpenClawRuntime,
+  type OpenClawModel,
+  type OpenClawProvider,
   type OpenClawRuntimePayload,
 } from '../../features/openclaw/api'
 import { EmptySection, FormMessage, LoadingSection, formatDateTime, formatRelativeTime, initialsFromUsername } from '../shared'
@@ -662,9 +667,49 @@ export function SuperAdminPage() {
 export function OpenClawPage() {
   const { session } = useAuth()
   const [runtime, setRuntime] = useState<OpenClawRuntimePayload | null>(null)
+  const [runtimeForm, setRuntimeForm] = useState({
+    ai_chat_enabled: true,
+    ai_chat_default_provider_config_id: 0,
+    ai_chat_default_model_id: 0,
+    ai_chat_assistant_name: 'BugCatcher AI',
+    ai_chat_system_prompt: '',
+  })
+  const [providerForm, setProviderForm] = useState({
+    provider_key: 'deepseek',
+    display_name: 'DeepSeek',
+    provider_type: 'openai-compatible',
+    base_url: 'https://api.deepseek.com',
+    api_key: '',
+    is_enabled: true,
+  })
+  const [modelForm, setModelForm] = useState({
+    provider_config_id: 0,
+    remote_model_id: 'deepseek-chat',
+    display_name: 'DeepSeek Chat',
+    supports_vision: false,
+    supports_json_output: false,
+    is_enabled: true,
+    is_default: true,
+  })
   const [message, setMessage] = useState('')
   const [error, setError] = useState('')
   const [pending, setPending] = useState(false)
+
+  const syncRuntime = useCallback((result: OpenClawRuntimePayload) => {
+    setRuntime(result)
+    setRuntimeForm({
+      ai_chat_enabled: result.runtime.runtime.ai_chat.is_enabled,
+      ai_chat_default_provider_config_id: result.runtime.runtime.ai_chat.default_provider_config_id ?? 0,
+      ai_chat_default_model_id: result.runtime.runtime.ai_chat.default_model_id ?? 0,
+      ai_chat_assistant_name: result.runtime.runtime.ai_chat.assistant_name || 'BugCatcher AI',
+      ai_chat_system_prompt: result.runtime.runtime.ai_chat.system_prompt || '',
+    })
+    setModelForm((current) => ({
+      ...current,
+      provider_config_id:
+        current.provider_config_id > 0 ? current.provider_config_id : (result.runtime.runtime.ai_chat.default_provider_config_id ?? result.runtime.providers[0]?.id ?? 0),
+    }))
+  }, [])
 
   const load = useCallback(async () => {
     if (!session?.accessToken) {
@@ -674,12 +719,12 @@ export function OpenClawPage() {
 
     try {
       const result = await fetchOpenClawRuntime(session.accessToken)
-      setRuntime(result)
+      syncRuntime(result)
       setError('')
     } catch (loadError) {
       setError(getErrorMessage(loadError, 'Unable to load OpenClaw runtime.'))
     }
-  }, [session?.accessToken])
+  }, [session?.accessToken, syncRuntime])
 
   useEffect(() => {
     void load()
@@ -705,9 +750,82 @@ export function OpenClawPage() {
     }
   }
 
+  const handleSaveRuntime = async (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault()
+    if (!session?.accessToken) {
+      return
+    }
+
+    setPending(true)
+    setMessage('')
+    setError('')
+
+    try {
+      await saveOpenClawRuntime(session.accessToken, {
+        ai_chat_enabled: runtimeForm.ai_chat_enabled,
+        ai_chat_default_provider_config_id: runtimeForm.ai_chat_default_provider_config_id || null,
+        ai_chat_default_model_id: runtimeForm.ai_chat_default_model_id || null,
+        ai_chat_assistant_name: runtimeForm.ai_chat_assistant_name.trim(),
+        ai_chat_system_prompt: runtimeForm.ai_chat_system_prompt.trim(),
+      })
+      setMessage('AI chat settings saved.')
+      await load()
+    } catch (saveError) {
+      setError(getErrorMessage(saveError, 'Unable to save AI chat settings.'))
+    } finally {
+      setPending(false)
+    }
+  }
+
+  const handleSaveProvider = async (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault()
+    if (!session?.accessToken) {
+      return
+    }
+
+    setPending(true)
+    setMessage('')
+    setError('')
+
+    try {
+      await saveOpenClawProvider(session.accessToken, providerForm)
+      setMessage('Provider saved.')
+      setProviderForm((current) => ({ ...current, api_key: '' }))
+      await load()
+    } catch (saveError) {
+      setError(getErrorMessage(saveError, 'Unable to save the AI provider.'))
+    } finally {
+      setPending(false)
+    }
+  }
+
+  const handleSaveModel = async (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault()
+    if (!session?.accessToken) {
+      return
+    }
+
+    setPending(true)
+    setMessage('')
+    setError('')
+
+    try {
+      await saveOpenClawModel(session.accessToken, modelForm)
+      setMessage('Model saved.')
+      await load()
+    } catch (saveError) {
+      setError(getErrorMessage(saveError, 'Unable to save the AI model.'))
+    } finally {
+      setPending(false)
+    }
+  }
+
   if (!runtime && !error) {
     return <LoadingSection title="OpenClaw" subtitle="Runtime control" />
   }
+
+  const providers = runtime?.runtime.providers ?? []
+  const models = runtime?.runtime.models ?? []
 
   return (
     <div className="page-stack">
@@ -740,8 +858,13 @@ export function OpenClawPage() {
                   key={provider.id}
                   icon="spark"
                   title={provider.display_name}
-                  detail={provider.provider_type}
-                  action={<span className={`pill ${provider.is_enabled ? 'pill--success' : ''}`}>{provider.is_enabled ? 'Enabled' : 'Disabled'}</span>}
+                  detail={`${provider.provider_type}${provider.base_url ? ` • ${provider.base_url}` : ''}`}
+                  action={
+                    <div className="list-row__actions">
+                      <span className={`pill ${provider.is_enabled ? 'pill--success' : ''}`}>{provider.is_enabled ? 'Enabled' : 'Disabled'}</span>
+                      {provider.api_key ? <span className="pill">{provider.api_key}</span> : null}
+                    </div>
+                  }
                 />
               ))}
             </div>
@@ -754,11 +877,161 @@ export function OpenClawPage() {
                   key={model.id}
                   icon="activity"
                   title={model.display_name}
-                  detail={model.model_id}
-                  action={<span className={`pill ${model.is_default ? 'pill--success' : ''}`}>{model.is_default ? 'Default' : 'Available'}</span>}
+                  detail={`${model.model_id}${model.supports_vision ? ' • Vision' : ''}`}
+                  action={
+                    <div className="list-row__actions">
+                      <span className={`pill ${model.is_default ? 'pill--success' : ''}`}>{model.is_default ? 'Default' : 'Available'}</span>
+                      <span className="pill">{model.is_enabled ? 'Enabled' : 'Disabled'}</span>
+                    </div>
+                  }
                 />
               ))}
             </div>
+          </SectionCard>
+
+          <SectionCard title="AI Chat Settings" subtitle="Used by the floating AI chat hotlink">
+            <form className="auth-stack" onSubmit={handleSaveRuntime}>
+              <label className="toggle-row">
+                <span>
+                  <strong>Enable AI Chat</strong>
+                </span>
+                <input
+                  type="checkbox"
+                  checked={runtimeForm.ai_chat_enabled}
+                  onChange={(event) => setRuntimeForm((current) => ({ ...current, ai_chat_enabled: event.target.checked }))}
+                />
+              </label>
+              <input
+                className="input-inline"
+                value={runtimeForm.ai_chat_assistant_name}
+                onChange={(event) => setRuntimeForm((current) => ({ ...current, ai_chat_assistant_name: event.target.value }))}
+                placeholder="Assistant display name"
+              />
+              <select
+                className="input-inline select-inline"
+                value={runtimeForm.ai_chat_default_provider_config_id}
+                onChange={(event) =>
+                  setRuntimeForm((current) => ({
+                    ...current,
+                    ai_chat_default_provider_config_id: Number(event.target.value),
+                  }))
+                }
+              >
+                <option value={0}>Select provider</option>
+                {providers.map((provider: OpenClawProvider) => (
+                  <option key={provider.id} value={provider.id}>
+                    {provider.display_name}
+                  </option>
+                ))}
+              </select>
+              <select
+                className="input-inline select-inline"
+                value={runtimeForm.ai_chat_default_model_id}
+                onChange={(event) =>
+                  setRuntimeForm((current) => ({
+                    ...current,
+                    ai_chat_default_model_id: Number(event.target.value),
+                  }))
+                }
+              >
+                <option value={0}>Select model</option>
+                {models.map((model: OpenClawModel) => (
+                  <option key={model.id} value={model.id}>
+                    {model.display_name}
+                  </option>
+                ))}
+              </select>
+              <textarea
+                className="input-inline textarea-inline"
+                value={runtimeForm.ai_chat_system_prompt}
+                onChange={(event) => setRuntimeForm((current) => ({ ...current, ai_chat_system_prompt: event.target.value }))}
+                placeholder="Optional system prompt"
+              />
+              <button type="submit" className="button button--primary" disabled={pending}>
+                {pending ? 'Saving...' : 'Save AI Chat Settings'}
+              </button>
+            </form>
+          </SectionCard>
+
+          <SectionCard title="Add Provider" subtitle="API keys stay masked after save">
+            <form className="auth-stack" onSubmit={handleSaveProvider}>
+              <input
+                className="input-inline"
+                value={providerForm.display_name}
+                onChange={(event) => setProviderForm((current) => ({ ...current, display_name: event.target.value }))}
+                placeholder="Display name"
+              />
+              <input
+                className="input-inline"
+                value={providerForm.provider_key}
+                onChange={(event) => setProviderForm((current) => ({ ...current, provider_key: event.target.value }))}
+                placeholder="Provider key"
+              />
+              <input
+                className="input-inline"
+                value={providerForm.provider_type}
+                onChange={(event) => setProviderForm((current) => ({ ...current, provider_type: event.target.value }))}
+                placeholder="Provider type"
+              />
+              <input
+                className="input-inline"
+                value={providerForm.base_url}
+                onChange={(event) => setProviderForm((current) => ({ ...current, base_url: event.target.value }))}
+                placeholder="Base URL"
+              />
+              <input
+                className="input-inline"
+                value={providerForm.api_key}
+                onChange={(event) => setProviderForm((current) => ({ ...current, api_key: event.target.value }))}
+                placeholder="API key"
+                type="password"
+              />
+              <button type="submit" className="button button--primary" disabled={pending}>
+                {pending ? 'Saving...' : 'Save Provider'}
+              </button>
+            </form>
+          </SectionCard>
+
+          <SectionCard title="Add Model" subtitle="Choose the model AI chat will use">
+            <form className="auth-stack" onSubmit={handleSaveModel}>
+              <select
+                className="input-inline select-inline"
+                value={modelForm.provider_config_id}
+                onChange={(event) => setModelForm((current) => ({ ...current, provider_config_id: Number(event.target.value) }))}
+              >
+                <option value={0}>Select provider</option>
+                {providers.map((provider: OpenClawProvider) => (
+                  <option key={provider.id} value={provider.id}>
+                    {provider.display_name}
+                  </option>
+                ))}
+              </select>
+              <input
+                className="input-inline"
+                value={modelForm.display_name}
+                onChange={(event) => setModelForm((current) => ({ ...current, display_name: event.target.value }))}
+                placeholder="Display name"
+              />
+              <input
+                className="input-inline"
+                value={modelForm.remote_model_id}
+                onChange={(event) => setModelForm((current) => ({ ...current, remote_model_id: event.target.value }))}
+                placeholder="Remote model id"
+              />
+              <label className="toggle-row">
+                <span>
+                  <strong>Supports vision</strong>
+                </span>
+                <input
+                  type="checkbox"
+                  checked={modelForm.supports_vision}
+                  onChange={(event) => setModelForm((current) => ({ ...current, supports_vision: event.target.checked }))}
+                />
+              </label>
+              <button type="submit" className="button button--primary" disabled={pending || modelForm.provider_config_id <= 0}>
+                {pending ? 'Saving...' : 'Save Model'}
+              </button>
+            </form>
           </SectionCard>
 
           <SectionCard title="Channels">

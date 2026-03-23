@@ -146,6 +146,12 @@ export function Icon({ name }: { name: IconName }) {
         <path d="M9.9 9.9a3 3 0 0 0 4.2 4.2" />
       </>
     ),
+    chat: (
+      <>
+        <path d="M5 6.5h14a2.5 2.5 0 0 1 2.5 2.5v6A2.5 2.5 0 0 1 19 17.5H11l-4.5 3v-3H5A2.5 2.5 0 0 1 2.5 15V9A2.5 2.5 0 0 1 5 6.5Z" />
+        <path d="M8 11h8M8 14h5" />
+      </>
+    ),
   }
 
   return (

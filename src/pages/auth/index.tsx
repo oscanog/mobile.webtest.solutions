@@ -96,7 +96,7 @@ export function LoginPage() {
 
         <AuthField
           label="Email"
-          placeholder="superadmin@local.dev"
+          placeholder="name@example.com"
           icon="mail"
           type="email"
           name="email"
@@ -209,7 +209,7 @@ export function SignupPage() {
         />
         <AuthField
           label="Email"
-          placeholder="superadmin@local.dev"
+          placeholder="name@example.com"
           icon="mail"
           type="email"
           name="email"
@@ -296,7 +296,7 @@ export function ForgotPasswordPage() {
         {error ? <FormMessage tone="error">{error}</FormMessage> : null}
         <AuthField
           label="Email"
-          placeholder="superadmin@local.dev"
+          placeholder="name@example.com"
           icon="mail"
           type="email"
           name="email"

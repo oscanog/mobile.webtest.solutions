@@ -101,3 +101,37 @@ export function formatRelativeTime(value: string | null | undefined): string {
 
   return formatter.format(diffSeconds, 'second')
 }
+
+export function formatChatTime(value: string | null | undefined): string {
+  if (!value) {
+    return ''
+  }
+
+  const parsed = new Date(value)
+  if (Number.isNaN(parsed.getTime())) {
+    return value
+  }
+
+  const now = Date.now()
+  const diffMs = now - parsed.getTime()
+  const diffSeconds = Math.floor(diffMs / 1000)
+
+  if (diffSeconds < 60) {
+    return 'just now'
+  }
+
+  const diffMinutes = Math.floor(diffSeconds / 60)
+  if (diffMinutes < 60) {
+    return `${diffMinutes}m ago`
+  }
+
+  const diffHours = Math.floor(diffMinutes / 60)
+  if (diffHours < 24) {
+    return `${diffHours}h ago`
+  }
+
+  const month = parsed.toLocaleString(undefined, { month: 'short' })
+  const day = parsed.getDate()
+  const year = String(parsed.getFullYear()).slice(-2)
+  return `${month} ${day}, ${year}`
+}

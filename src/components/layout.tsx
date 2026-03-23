@@ -1,8 +1,9 @@
-import { useState, type ReactNode } from 'react'
+import { useEffect, useState, type ReactNode } from 'react'
 import { NavLink, Outlet, useLocation } from 'react-router-dom'
 import { useAuth } from '../auth-context'
+import { fetchAIChatBootstrap } from '../features/ai-chat/api'
 import { useNotifications } from '../features/notifications/context'
-import { bottomNavItems, findAppRoute, getSidebarItems } from '../lib/access'
+import { bottomNavItems, canAccessAiChat, findAppRoute, getSidebarItems } from '../lib/access'
 import { useTheme } from '../theme-context'
 import { BrandMark, Icon, ThemeToggle } from './ui'
 
@@ -22,10 +23,30 @@ export function AppViewport({ children }: { children: ReactNode }) {
 export function AppShell() {
   const location = useLocation()
   const activeRoute = findAppRoute(location.pathname)
+  const isAiChatRoute = location.pathname.startsWith('/app/ai-chat')
   const [isDrawerOpen, setIsDrawerOpen] = useState(false)
+  const [showAiChatFab, setShowAiChatFab] = useState(false)
   const { unreadCount } = useNotifications()
   const { activeMembership, defaultAppPath, logout, session, user } = useAuth()
   const drawerItems = getSidebarItems(session)
+
+  useEffect(() => {
+    const run = async () => {
+      if (!session?.accessToken || !session.activeOrgId || !canAccessAiChat(session)) {
+        setShowAiChatFab(false)
+        return
+      }
+
+      try {
+        const bootstrap = await fetchAIChatBootstrap(session.accessToken, session.activeOrgId)
+        setShowAiChatFab(Boolean(bootstrap.enabled))
+      } catch {
+        setShowAiChatFab(false)
+      }
+    }
+
+    void run()
+  }, [session])
 
   return (
     <div className="app-shell">
@@ -99,10 +120,7 @@ export function AppShell() {
           <div className="top-bar__titles">
             <p className="top-bar__eyebrow">{activeMembership ? activeMembership.org_name : 'No active organization'}</p>
             <h1>{activeRoute.title}</h1>
-            <p>
-              {activeRoute.subtitle}
-              {user ? ` | ${user.username} (${user.role}${activeMembership ? ` / ${activeMembership.role}` : ''})` : ''}
-            </p>
+            <p>{activeRoute.subtitle}</p>
           </div>
 
           <div className="top-bar__actions">
@@ -121,6 +139,17 @@ export function AppShell() {
         <main className="page-scroll">
           <Outlet />
         </main>
+
+        {showAiChatFab && !isAiChatRoute ? (
+          <NavLink
+            to="/app/ai-chat"
+            className={({ isActive }) => `ai-chat-fab ${isActive ? 'is-active' : ''}`}
+            aria-label="Chat with AI"
+          >
+            <Icon name="chat" />
+            <span>AI</span>
+          </NavLink>
+        ) : null}
 
         <nav className="bottom-nav" aria-label="Primary">
           {bottomNavItems.map((item) => (

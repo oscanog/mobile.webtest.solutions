@@ -13,6 +13,7 @@ export type AppRouteKey =
   | 'manage-users'
   | 'checklist'
   | 'discord-links'
+  | 'ai-chat'
   | 'settings'
 
 export interface AppRouteDefinition {
@@ -103,6 +104,7 @@ export const appRoutes: AppRouteDefinition[] = [
   },
   { key: 'checklist', path: '/app/checklist', title: 'Checklist', subtitle: 'Batch tracking', navKey: 'utility', requiresAuth: true, requiresOrg: true },
   { key: 'discord-links', path: '/app/discord-links', title: 'Discord Link', subtitle: 'Channel health', navKey: 'utility', requiresAuth: true },
+  { key: 'ai-chat', path: '/app/ai-chat', title: 'AI Chat', subtitle: 'BugCatcher assistant', navKey: 'utility', requiresAuth: true, requiresOrg: true },
   { key: 'settings', path: '/app/settings', title: 'Settings', subtitle: 'App defaults', navKey: 'utility', requiresAuth: true },
 ]
 
@@ -111,6 +113,7 @@ const sidebarItemDefinitions: SidebarItemDefinition[] = [
   { key: 'openclaw', label: 'OpenClaw', to: '/app/openclaw', icon: 'spark' },
   { key: 'checklist', label: 'Checklist', to: '/app/checklist', icon: 'checklist' },
   { key: 'discord-links', label: 'Discord Link', to: '/app/discord-links', icon: 'discord' },
+  { key: 'ai-chat', label: 'AI Chat', to: '/app/ai-chat', icon: 'chat' },
   { key: 'manage-users', label: 'Manage Users', to: '/app/manage-users', icon: 'users' },
   { key: 'settings', label: 'Settings', to: '/app/settings', icon: 'settings' },
   { key: 'logout', label: 'Logout', to: '/login', icon: 'logout', tone: 'danger' },
@@ -158,6 +161,19 @@ export function canManageChecklist(session: AuthSession | null): boolean {
   return canManageProjects(session)
 }
 
+export function canAccessAiChat(session: AuthSession | null): boolean {
+  const membership = getActiveMembership(session)
+  if (!membership) {
+    return false
+  }
+
+  if (hasSystemRole(session, 'super_admin') || hasSystemRole(session, 'admin')) {
+    return true
+  }
+
+  return membership.role === 'QA Lead'
+}
+
 export function canViewRoute(session: AuthSession | null, routeKey: AppRouteKey): boolean {
   const route = appRoutes.find((item) => item.key === routeKey)
   if (!route) {
@@ -178,6 +194,9 @@ export function canViewRoute(session: AuthSession | null, routeKey: AppRouteKey)
     return false
   }
   if (route.key === 'checklist' && !canManageChecklist(session)) {
+    return false
+  }
+  if (route.key === 'ai-chat' && !canAccessAiChat(session)) {
     return false
   }
   return true
@@ -223,6 +242,9 @@ export function normalizeNotificationDestination(session: AuthSession | null, pa
   }
   if (path.startsWith('/app/openclaw')) {
     return canViewRoute(session, 'openclaw') ? '/app/openclaw' : getDefaultAppPath(session)
+  }
+  if (path.startsWith('/app/ai-chat')) {
+    return canViewRoute(session, 'ai-chat') ? '/app/ai-chat' : getDefaultAppPath(session)
   }
   return getDefaultAppPath(session)
 }
