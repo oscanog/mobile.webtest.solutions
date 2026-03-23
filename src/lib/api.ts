@@ -30,13 +30,13 @@ function stripByteOrderMark(value: string): string {
 async function parseEnvelope<T>(response: Response): Promise<ApiEnvelope<T>> {
   const text = stripByteOrderMark(await response.text())
   if (!text) {
-    return { ok: false, error: { message: 'Empty response.' } }
+    return { ok: false, error: { message: 'The server returned an empty response. Please try again.' } }
   }
 
   try {
     return JSON.parse(text) as ApiEnvelope<T>
   } catch {
-    throw new ApiError(response.status, `Expected JSON response but received: ${text.slice(0, 180)}`)
+    throw new ApiError(response.status, 'The server returned an unexpected response. Please try again.')
   }
 }
 
@@ -74,6 +74,9 @@ export async function requestJson<T>(
 }
 
 export function getErrorMessage(error: unknown, fallback: string): string {
+  if (error instanceof TypeError) {
+    return 'Unable to reach the server. Check your connection and try again.'
+  }
   return error instanceof Error && error.message ? error.message : fallback
 }
 

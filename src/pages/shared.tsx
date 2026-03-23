@@ -2,13 +2,24 @@
 import { SectionCard } from '../components/ui'
 
 export function FormMessage({
+  id,
   tone,
   children,
 }: {
+  id?: string
   tone: 'error' | 'success' | 'info'
   children: string
 }) {
-  return <div className={`form-message form-message--${tone}`}>{children}</div>
+  return (
+    <div
+      id={id}
+      className={`form-message form-message--${tone}`}
+      role={tone === 'error' ? 'alert' : 'status'}
+      aria-live={tone === 'error' ? 'assertive' : 'polite'}
+    >
+      {children}
+    </div>
+  )
 }
 
 export function LoadingSection({ title, subtitle }: { title: string; subtitle?: string }) {

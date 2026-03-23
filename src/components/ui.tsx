@@ -1,4 +1,5 @@
-import type { ChangeEventHandler, InputHTMLAttributes, ReactNode } from 'react'
+import { useState } from 'react'
+import type { InputHTMLAttributes, ReactNode } from 'react'
 import type { IconName, StatCardData } from '../app-data'
 import { useTheme } from '../theme-context'
 
@@ -131,6 +132,20 @@ export function Icon({ name }: { name: IconName }) {
         <path d="M4 12h16M12 4a13 13 0 0 1 0 16M12 4a13 13 0 0 0 0 16" />
       </>
     ),
+    eye: (
+      <>
+        <path d="M2.5 12s3.5-6 9.5-6 9.5 6 9.5 6-3.5 6-9.5 6-9.5-6-9.5-6Z" />
+        <circle cx="12" cy="12" r="3" />
+      </>
+    ),
+    'eye-off': (
+      <>
+        <path d="M3 3 21 21" />
+        <path d="M10.6 6.3A10.8 10.8 0 0 1 12 6c6 0 9.5 6 9.5 6a17.5 17.5 0 0 1-4.2 4.8" />
+        <path d="M8.1 8.2A17.1 17.1 0 0 0 2.5 12s3.5 6 9.5 6c1.2 0 2.4-.2 3.4-.6" />
+        <path d="M9.9 9.9a3 3 0 0 0 4.2 4.2" />
+      </>
+    ),
   }
 
   return (
@@ -153,28 +168,24 @@ export function AuthField({
   placeholder,
   icon,
   type = 'text',
-  name,
-  value,
-  onChange,
-  autoComplete,
   disabled = false,
-  inputMode,
-  maxLength,
   error,
+  allowVisibilityToggle = false,
+  ...inputProps
 }: {
   label: string
   placeholder: string
   icon: IconName
   type?: 'text' | 'email' | 'password'
-  name?: string
-  value?: string
-  onChange?: ChangeEventHandler<HTMLInputElement>
-  autoComplete?: InputHTMLAttributes<HTMLInputElement>['autoComplete']
   disabled?: boolean
-  inputMode?: InputHTMLAttributes<HTMLInputElement>['inputMode']
-  maxLength?: number
   error?: boolean
-}) {
+  allowVisibilityToggle?: boolean
+} & Omit<InputHTMLAttributes<HTMLInputElement>, 'children'>) {
+  const [isPasswordVisible, setIsPasswordVisible] = useState(false)
+  const supportsVisibilityToggle = type === 'password' && allowVisibilityToggle
+  const resolvedType = supportsVisibilityToggle && isPasswordVisible ? 'text' : type
+  const toggleLabel = `${isPasswordVisible ? 'Hide' : 'Show'} ${label.toLowerCase()}`
+
   return (
     <label className="auth-field">
       <span>{label}</span>
@@ -183,16 +194,23 @@ export function AuthField({
           <Icon name={icon} />
         </span>
         <input
-          type={type}
-          name={name}
-          value={value}
-          onChange={onChange}
+          type={resolvedType}
           placeholder={placeholder}
-          autoComplete={autoComplete}
           disabled={disabled}
-          inputMode={inputMode}
-          maxLength={maxLength}
+          {...inputProps}
         />
+        {supportsVisibilityToggle ? (
+          <button
+            type="button"
+            className="auth-field__toggle"
+            onClick={() => setIsPasswordVisible((current) => !current)}
+            aria-label={toggleLabel}
+            aria-pressed={isPasswordVisible}
+            disabled={disabled}
+          >
+            <Icon name={isPasswordVisible ? 'eye-off' : 'eye'} />
+          </button>
+        ) : null}
       </div>
     </label>
   )

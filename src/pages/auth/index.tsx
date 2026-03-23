@@ -5,25 +5,61 @@ import { AuthLayout } from '../../components/auth-layout'
 import { AuthField, Icon } from '../../components/ui'
 import { FormMessage } from '../shared'
 
+const LOGIN_FEEDBACK_ID = 'login-form-feedback'
+
+function getLoginValidationMessage(email: string, password: string): string {
+  if (!email && !password) {
+    return 'Email and password are required.'
+  }
+  if (!email) {
+    return 'Email is required.'
+  }
+  if (!password) {
+    return 'Password is required.'
+  }
+  return ''
+}
+
 export function LoginPage() {
   const { login } = useAuth()
   const navigate = useNavigate()
   const location = useLocation()
-  const [email, setEmail] = useState('superadmin@local.dev')
-  const [password, setPassword] = useState('DevPass123!')
+  const [email, setEmail] = useState('')
+  const [password, setPassword] = useState('')
   const [error, setError] = useState('')
   const [pending, setPending] = useState(false)
   const flashMessage =
     typeof location.state === 'object' && location.state && 'message' in location.state
       ? String(location.state.message)
       : ''
+  const feedbackId = error ? LOGIN_FEEDBACK_ID : flashMessage ? `${LOGIN_FEEDBACK_ID}-success` : undefined
 
   const handleSubmit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault()
+    const normalizedEmail = email.trim()
+    const validationMessage = getLoginValidationMessage(normalizedEmail, password)
+    const form = event.currentTarget
+    const emailInput = form.elements.namedItem('email')
+
+    if (normalizedEmail !== email) {
+      setEmail(normalizedEmail)
+    }
+
+    if (validationMessage) {
+      setError(validationMessage)
+      return
+    }
+
+    if (emailInput instanceof HTMLInputElement && !emailInput.validity.valid) {
+      setError('')
+      emailInput.reportValidity()
+      return
+    }
+
     setPending(true)
     setError('')
 
-    const result = await login({ email, password })
+    const result = await login({ email: normalizedEmail, password })
 
     setPending(false)
     if (!result.ok) {
@@ -47,8 +83,16 @@ export function LoginPage() {
       }
     >
       <form className="auth-stack" onSubmit={handleSubmit}>
-        {flashMessage ? <FormMessage tone="success">{flashMessage}</FormMessage> : null}
-        {error ? <FormMessage tone="error">{error}</FormMessage> : null}
+        {flashMessage ? (
+          <FormMessage id={error ? undefined : feedbackId} tone="success">
+            {flashMessage}
+          </FormMessage>
+        ) : null}
+        {error ? (
+          <FormMessage id={feedbackId} tone="error">
+            {error}
+          </FormMessage>
+        ) : null}
 
         <AuthField
           label="Email"
@@ -61,6 +105,11 @@ export function LoginPage() {
           onChange={(event) => setEmail(event.target.value)}
           disabled={pending}
           error={Boolean(error)}
+          aria-describedby={feedbackId}
+          aria-invalid={error ? 'true' : undefined}
+          autoCapitalize="none"
+          autoCorrect="off"
+          spellCheck={false}
         />
         <AuthField
           label="Password"
@@ -73,13 +122,26 @@ export function LoginPage() {
           onChange={(event) => setPassword(event.target.value)}
           disabled={pending}
           error={Boolean(error)}
+          allowVisibilityToggle
+          aria-describedby={error ? feedbackId : undefined}
+          aria-invalid={error ? 'true' : undefined}
         />
 
         <div className="auth-actions-row">
           <button type="submit" className="button button--primary" disabled={pending}>
             {pending ? 'Signing In...' : 'Login'}
           </button>
-          <Link className="button button--ghost" to="/forgot-password">
+          <Link
+            className={`button button--ghost ${pending ? 'is-disabled' : ''}`}
+            to="/forgot-password"
+            aria-disabled={pending}
+            tabIndex={pending ? -1 : undefined}
+            onClick={(event) => {
+              if (pending) {
+                event.preventDefault()
+              }
+            }}
+          >
             Forgot
           </Link>
         </div>
@@ -168,6 +230,7 @@ export function SignupPage() {
           onChange={(event) => setPassword(event.target.value)}
           disabled={pending}
           error={Boolean(error)}
+          allowVisibilityToggle
         />
         <AuthField
           label="Confirm"
@@ -180,6 +243,7 @@ export function SignupPage() {
           onChange={(event) => setConfirmPassword(event.target.value)}
           disabled={pending}
           error={Boolean(error)}
+          allowVisibilityToggle
         />
         <div className="auth-actions-row">
           <button type="submit" className="button button--primary" disabled={pending}>
@@ -367,6 +431,7 @@ export function ForgotPasswordVerifyPage() {
           onChange={(event) => setPassword(event.target.value)}
           disabled={pending}
           error={Boolean(error)}
+          allowVisibilityToggle
         />
         <AuthField
           label="Confirm"
@@ -379,6 +444,7 @@ export function ForgotPasswordVerifyPage() {
           onChange={(event) => setConfirmPassword(event.target.value)}
           disabled={pending}
           error={Boolean(error)}
+          allowVisibilityToggle
         />
         <div className="auth-actions-row">
           <button type="submit" className="button button--primary" disabled={pending}>

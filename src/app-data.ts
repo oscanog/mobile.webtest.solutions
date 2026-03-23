@@ -19,6 +19,8 @@ export type IconName =
   | 'mail'
   | 'search'
   | 'globe'
+  | 'eye'
+  | 'eye-off'
 
 export interface NavItem {
   label: string

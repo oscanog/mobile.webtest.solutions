@@ -20,6 +20,7 @@ import {
 const NOTIFICATION_POLL_INTERVAL_MS = 45000
 const NOTIFICATION_RECONNECT_BASE_MS = 2000
 const NOTIFICATION_RECONNECT_MAX_MS = 30000
+const NOTIFICATION_MAX_REALTIME_FAILURES = import.meta.env.DEV ? 1 : 5
 
 interface NotificationContextValue {
   notifications: NotificationRecord[]
@@ -88,6 +89,7 @@ export function NotificationProvider({ children }: { children: ReactNode }) {
     let reconnectTimer: number | null = null
     let pollingTimer: number | null = null
     let reconnectAttempts = 0
+    let realtimeFailures = 0
 
     const clearReconnectTimer = () => {
       if (reconnectTimer !== null) {
@@ -151,12 +153,25 @@ export function NotificationProvider({ children }: { children: ReactNode }) {
       }
     }
 
+    const stopRealtimeReconnects = () => {
+      clearReconnectTimer()
+      setConnectionState('polling')
+      setConnectionHint('Live notifications unavailable. Background refresh is active.')
+    }
+
     const scheduleReconnect = () => {
       if (!isActive) {
         return
       }
 
       startPolling()
+      realtimeFailures += 1
+
+      if (realtimeFailures >= NOTIFICATION_MAX_REALTIME_FAILURES) {
+        stopRealtimeReconnects()
+        return
+      }
+
       clearReconnectTimer()
       const delay = Math.min(
         NOTIFICATION_RECONNECT_MAX_MS,
@@ -190,6 +205,7 @@ export function NotificationProvider({ children }: { children: ReactNode }) {
           }
 
           reconnectAttempts = 0
+          realtimeFailures = 0
           stopPolling()
           setConnectionState('connected')
           setConnectionHint('Live notifications connected.')

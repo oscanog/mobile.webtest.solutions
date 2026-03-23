@@ -385,6 +385,7 @@
 .auth-field__input input,
 .auth-field__input select {
   width: 100%;
+  min-width: 0;
   border: 0;
   outline: 0;
   background: transparent;
@@ -407,6 +408,36 @@
   color: var(--accent-steel);
   background: var(--icon-wrap-bg);
   flex-shrink: 0;
+}
+
+.auth-field__toggle {
+  width: 36px;
+  height: 36px;
+  border: 0;
+  padding: 0;
+  border-radius: 12px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--accent-steel);
+  background: transparent;
+  cursor: pointer;
+  flex-shrink: 0;
+}
+
+.auth-field__toggle:disabled,
+.button.is-disabled {
+  opacity: 0.65;
+  cursor: not-allowed;
+}
+
+.auth-field__toggle:not(:disabled):hover,
+.auth-field__toggle:not(:disabled):focus-visible {
+  background: rgba(73, 98, 124, 0.12);
+}
+
+.button.is-disabled {
+  pointer-events: none;
 }
 
 .otp-preview,
