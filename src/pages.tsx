@@ -1,5 +1,5 @@
-﻿import { useState, type CSSProperties } from 'react'
-import { Link, useNavigate } from 'react-router-dom'
+import { useState, type CSSProperties, type FormEvent } from 'react'
+import { Link, useLocation, useNavigate, useSearchParams } from 'react-router-dom'
 import {
   dashboardPie,
   dashboardStats,
@@ -8,25 +8,54 @@ import {
   landingFeatures,
   leaderboard,
   openClawSections,
-  organizations,
-  profileSummary,
   projects,
   reports,
   type OpenClawSectionData,
 } from './app-data'
+import { useAuth } from './auth-context'
 import { AuthLayout } from './components/auth-layout'
-import { BrandMark, AuthField, DetailPair, Icon, ListRow, SectionCard, StatCard, StatusTile, ThemeToggle } from './components/ui'
+import {
+  AuthField,
+  BrandMark,
+  DetailPair,
+  Icon,
+  ListRow,
+  SectionCard,
+  StatCard,
+  StatusTile,
+  ThemeToggle,
+} from './components/ui'
 import { LegacyHeroAnimation } from './components/legacy-hero-animation'
-import { isDemoAuthenticated, setDemoAuthenticated } from './demo-auth'
 import { useNotifications } from './notifications-context'
 
 const LEGACY_LANDING_BG =
   'https://i.pinimg.com/1200x/b2/13/65/b21365c035ff1cfa52edc492affa885b.jpg'
 
+function initialsFromUsername(username: string): string {
+  return (
+    username
+      .split(/[^a-zA-Z0-9]+/)
+      .map((part) => part[0] ?? '')
+      .join('')
+      .slice(0, 2)
+      .toUpperCase() || 'BC'
+  )
+}
+
+function FormMessage({
+  tone,
+  children,
+}: {
+  tone: 'error' | 'success' | 'info'
+  children: string
+}) {
+  return <div className={`form-message form-message--${tone}`}>{children}</div>
+}
+
 export function LandingPage() {
-  const [isSignedIn] = useState(() => isDemoAuthenticated())
+  const { defaultAppPath, isAuthenticated } = useAuth()
   const navigate = useNavigate()
-  const startPath = isSignedIn ? '/app/dashboard' : '/login'
+  const startPath = isAuthenticated ? defaultAppPath : '/login'
 
   return (
     <div className="landing-page">
@@ -52,7 +81,7 @@ export function LandingPage() {
             <p>Simple issue tracking for projects, teams, and daily progress visibility.</p>
             <div className="landing-hero__actions">
               <Link to={startPath} className="button button--primary">
-                Get Started
+                {isAuthenticated ? 'Continue' : 'Get Started'}
               </Link>
               <a href="#why-bugcatcher" className="button button--ghost">
                 Learn More
@@ -63,7 +92,7 @@ export function LandingPage() {
 
         <section className="landing-stats">
           <article className="landing-stat">
-            <strong>∞</strong>
+            <strong>&infin;</strong>
             <span>Bugs Caught</span>
           </article>
           <article className="landing-stat">
@@ -96,17 +125,45 @@ export function LandingPage() {
       </main>
 
       <footer className="landing-footer">
-        <p>© 2026 BugCatcher. Built for students, by students.</p>
+        <p>&copy; 2026 BugCatcher. Built for students, by students.</p>
       </footer>
     </div>
   )
 }
 
 export function LoginPage() {
+  const { login } = useAuth()
+  const navigate = useNavigate()
+  const location = useLocation()
+  const [email, setEmail] = useState('superadmin@local.dev')
+  const [password, setPassword] = useState('DevPass123!')
+  const [error, setError] = useState('')
+  const [pending, setPending] = useState(false)
+  const flashMessage =
+    typeof location.state === 'object' && location.state && 'message' in location.state
+      ? String(location.state.message)
+      : ''
+
+  const handleSubmit = async (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault()
+    setPending(true)
+    setError('')
+
+    const result = await login({ email, password })
+
+    setPending(false)
+    if (!result.ok) {
+      setError(result.error ?? 'Unable to login.')
+      return
+    }
+
+    navigate('/app', { replace: true })
+  }
+
   return (
     <AuthLayout
       title="Login"
-      subtitle="Super admin access"
+      subtitle="Use your BugCatcher account"
       navLabel="Sign Up"
       navTo="/signup"
       footer={
@@ -115,26 +172,83 @@ export function LoginPage() {
         </p>
       }
     >
-      <AuthField label="Email" placeholder="superadmin@local.dev" icon="mail" type="email" />
-      <AuthField label="Password" placeholder="Enter password" icon="lock" type="password" />
+      <form className="auth-stack" onSubmit={handleSubmit}>
+        {flashMessage ? <FormMessage tone="success">{flashMessage}</FormMessage> : null}
+        {error ? <FormMessage tone="error">{error}</FormMessage> : null}
 
-      <div className="auth-actions-row">
-        <Link className="button button--primary" to="/app/dashboard" onClick={() => setDemoAuthenticated(true)}>
-          Login
-        </Link>
-        <Link className="button button--ghost" to="/forgot-password">
-          Forgot
-        </Link>
-      </div>
+        <AuthField
+          label="Email"
+          placeholder="superadmin@local.dev"
+          icon="mail"
+          type="email"
+          name="email"
+          autoComplete="email"
+          value={email}
+          onChange={(event) => setEmail(event.target.value)}
+          disabled={pending}
+          error={Boolean(error)}
+        />
+        <AuthField
+          label="Password"
+          placeholder="Enter password"
+          icon="lock"
+          type="password"
+          name="password"
+          autoComplete="current-password"
+          value={password}
+          onChange={(event) => setPassword(event.target.value)}
+          disabled={pending}
+          error={Boolean(error)}
+        />
+
+        <div className="auth-actions-row">
+          <button type="submit" className="button button--primary" disabled={pending}>
+            {pending ? 'Signing In...' : 'Login'}
+          </button>
+          <Link className="button button--ghost" to="/forgot-password">
+            Forgot
+          </Link>
+        </div>
+      </form>
     </AuthLayout>
   )
 }
 
 export function SignupPage() {
+  const { signup } = useAuth()
+  const navigate = useNavigate()
+  const [username, setUsername] = useState('')
+  const [email, setEmail] = useState('')
+  const [password, setPassword] = useState('')
+  const [confirmPassword, setConfirmPassword] = useState('')
+  const [error, setError] = useState('')
+  const [pending, setPending] = useState(false)
+
+  const handleSubmit = async (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault()
+    setPending(true)
+    setError('')
+
+    const result = await signup({ username, email, password, confirmPassword })
+
+    setPending(false)
+    if (!result.ok) {
+      setError(result.error ?? 'Unable to create account.')
+      return
+    }
+
+    navigate('/login', {
+      replace: true,
+      state: {
+        message: result.message ?? 'Account created. You can now log in.',
+      },
+    })
+  }
+
   return (
     <AuthLayout
       title="Sign Up"
-      subtitle="Create account"
+      subtitle="Create your BugCatcher account"
       navLabel="Login"
       navTo="/login"
       footer={
@@ -143,20 +257,91 @@ export function SignupPage() {
         </p>
       }
     >
-      <AuthField label="Username" placeholder="superadmin" icon="users" />
-      <AuthField label="Email" placeholder="superadmin@local.dev" icon="mail" type="email" />
-      <AuthField label="Password" placeholder="Create password" icon="lock" type="password" />
-      <AuthField label="Confirm" placeholder="Repeat password" icon="lock" type="password" />
-      <div className="auth-actions-row">
-        <Link className="button button--primary" to="/app/dashboard" onClick={() => setDemoAuthenticated(true)}>
-          Create
-        </Link>
-      </div>
+      <form className="auth-stack" onSubmit={handleSubmit}>
+        {error ? <FormMessage tone="error">{error}</FormMessage> : null}
+
+        <AuthField
+          label="Username"
+          placeholder="superadmin"
+          icon="users"
+          name="username"
+          autoComplete="username"
+          value={username}
+          onChange={(event) => setUsername(event.target.value)}
+          disabled={pending}
+          error={Boolean(error)}
+        />
+        <AuthField
+          label="Email"
+          placeholder="superadmin@local.dev"
+          icon="mail"
+          type="email"
+          name="email"
+          autoComplete="email"
+          value={email}
+          onChange={(event) => setEmail(event.target.value)}
+          disabled={pending}
+          error={Boolean(error)}
+        />
+        <AuthField
+          label="Password"
+          placeholder="Create password"
+          icon="lock"
+          type="password"
+          name="password"
+          autoComplete="new-password"
+          value={password}
+          onChange={(event) => setPassword(event.target.value)}
+          disabled={pending}
+          error={Boolean(error)}
+        />
+        <AuthField
+          label="Confirm"
+          placeholder="Repeat password"
+          icon="lock"
+          type="password"
+          name="confirm_password"
+          autoComplete="new-password"
+          value={confirmPassword}
+          onChange={(event) => setConfirmPassword(event.target.value)}
+          disabled={pending}
+          error={Boolean(error)}
+        />
+        <div className="auth-actions-row">
+          <button type="submit" className="button button--primary" disabled={pending}>
+            {pending ? 'Creating...' : 'Create'}
+          </button>
+        </div>
+      </form>
     </AuthLayout>
   )
 }
 
 export function ForgotPasswordPage() {
+  const { requestOtp } = useAuth()
+  const navigate = useNavigate()
+  const [email, setEmail] = useState('')
+  const [error, setError] = useState('')
+  const [pending, setPending] = useState(false)
+
+  const handleSubmit = async (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault()
+    setPending(true)
+    setError('')
+
+    const result = await requestOtp(email)
+    setPending(false)
+
+    if (!result.ok) {
+      setError(result.error ?? 'Unable to send reset code.')
+      return
+    }
+
+    navigate(`/forgot-password/verify?email=${encodeURIComponent(email)}`, {
+      state: { message: result.message ?? 'OTP sent. Check your inbox.' },
+    })
+  }
+
   return (
     <AuthLayout
       title="Forgot Password"
@@ -169,47 +354,178 @@ export function ForgotPasswordPage() {
         </p>
       }
     >
-      <AuthField label="Email" placeholder="superadmin@local.dev" icon="mail" type="email" />
-      <div className="auth-actions-row">
-        <Link className="button button--primary" to="/forgot-password/verify">
-          Send OTP
-        </Link>
-      </div>
+      <form className="auth-stack" onSubmit={handleSubmit}>
+        {error ? <FormMessage tone="error">{error}</FormMessage> : null}
+        <AuthField
+          label="Email"
+          placeholder="superadmin@local.dev"
+          icon="mail"
+          type="email"
+          name="email"
+          autoComplete="email"
+          value={email}
+          onChange={(event) => setEmail(event.target.value)}
+          disabled={pending}
+          error={Boolean(error)}
+        />
+        <div className="auth-actions-row">
+          <button type="submit" className="button button--primary" disabled={pending}>
+            {pending ? 'Sending...' : 'Send OTP'}
+          </button>
+        </div>
+      </form>
     </AuthLayout>
   )
 }
 
 export function ForgotPasswordVerifyPage() {
+  const { resendOtp, resetPassword, verifyOtp } = useAuth()
+  const navigate = useNavigate()
+  const location = useLocation()
+  const [searchParams] = useSearchParams()
+  const email = searchParams.get('email')?.trim() ?? ''
+  const [otp, setOtp] = useState('')
+  const [password, setPassword] = useState('')
+  const [confirmPassword, setConfirmPassword] = useState('')
+  const [error, setError] = useState('')
+  const [message, setMessage] = useState(
+    typeof location.state === 'object' && location.state && 'message' in location.state
+      ? String(location.state.message)
+      : '',
+  )
+  const [pending, setPending] = useState(false)
+  const [resending, setResending] = useState(false)
+
+  const handleSubmit = async (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault()
+
+    if (!email) {
+      setError('Email is missing. Start the reset flow again.')
+      return
+    }
+
+    setPending(true)
+    setError('')
+    setMessage('')
+
+    const verification = await verifyOtp(email, otp)
+    if (!verification.ok) {
+      setPending(false)
+      setError(verification.error ?? 'Unable to verify code.')
+      return
+    }
+
+    const reset = await resetPassword({ email, password, confirmPassword })
+    setPending(false)
+
+    if (!reset.ok) {
+      setError(reset.error ?? 'Unable to reset password.')
+      return
+    }
+
+    navigate('/forgot-password/success', {
+      replace: true,
+      state: {
+        message: reset.message ?? 'Password updated. You can now log in.',
+      },
+    })
+  }
+
+  const handleResend = async () => {
+    if (!email) {
+      setError('Email is missing. Start the reset flow again.')
+      return
+    }
+
+    setResending(true)
+    setError('')
+
+    const result = await resendOtp(email)
+    setResending(false)
+
+    if (!result.ok) {
+      setError(result.error ?? 'Unable to resend reset code.')
+      return
+    }
+
+    setMessage(result.message ?? 'A fresh code has been sent.')
+  }
+
   return (
     <AuthLayout
       title="OTP Verify"
-      subtitle="6-digit code"
+      subtitle={email ? `Reset for ${email}` : '6-digit code'}
       navLabel="Login"
       navTo="/login"
       footer={
         <p>
-          Need new code? <Link to="/forgot-password">Retry</Link>
+          Need new code?{' '}
+          <button type="button" className="inline-link" onClick={handleResend} disabled={resending}>
+            {resending ? 'Sending...' : 'Resend'}
+          </button>
         </p>
       }
     >
-      <div className="otp-preview">
-        {['3', '8', '2', '1', '4', '7'].map((digit, index) => (
-          <span key={`${digit}-${index}`}>{digit}</span>
-        ))}
-      </div>
+      <form className="auth-stack" onSubmit={handleSubmit}>
+        {message ? <FormMessage tone="info">{message}</FormMessage> : null}
+        {error ? <FormMessage tone="error">{error}</FormMessage> : null}
 
-      <AuthField label="New Password" placeholder="New password" icon="lock" type="password" />
-      <AuthField label="Confirm" placeholder="Repeat password" icon="lock" type="password" />
-      <div className="auth-actions-row">
-        <Link className="button button--primary" to="/forgot-password/success">
-          Reset
-        </Link>
-      </div>
+        <AuthField
+          label="OTP"
+          placeholder="382147"
+          icon="alert"
+          name="otp"
+          value={otp}
+          onChange={(event) => setOtp(event.target.value)}
+          disabled={pending}
+          inputMode="numeric"
+          maxLength={6}
+          error={Boolean(error)}
+        />
+        <AuthField
+          label="New Password"
+          placeholder="New password"
+          icon="lock"
+          type="password"
+          name="password"
+          autoComplete="new-password"
+          value={password}
+          onChange={(event) => setPassword(event.target.value)}
+          disabled={pending}
+          error={Boolean(error)}
+        />
+        <AuthField
+          label="Confirm"
+          placeholder="Repeat password"
+          icon="lock"
+          type="password"
+          name="confirm_password"
+          autoComplete="new-password"
+          value={confirmPassword}
+          onChange={(event) => setConfirmPassword(event.target.value)}
+          disabled={pending}
+          error={Boolean(error)}
+        />
+        <div className="auth-actions-row">
+          <button type="submit" className="button button--primary" disabled={pending}>
+            {pending ? 'Resetting...' : 'Reset'}
+          </button>
+          <button type="button" className="button button--ghost" onClick={handleResend} disabled={resending}>
+            {resending ? 'Sending...' : 'Resend'}
+          </button>
+        </div>
+      </form>
     </AuthLayout>
   )
 }
 
 export function ForgotPasswordSuccessPage() {
+  const location = useLocation()
+  const message =
+    typeof location.state === 'object' && location.state && 'message' in location.state
+      ? String(location.state.message)
+      : 'Use your new password to sign in.'
+
   return (
     <AuthLayout title="Reset Success" subtitle="Password updated" navLabel="Login" navTo="/login">
       <div className="success-panel">
@@ -218,15 +534,12 @@ export function ForgotPasswordSuccessPage() {
         </div>
         <div>
           <h3>All set</h3>
-          <p>Use your new password.</p>
+          <p>{message}</p>
         </div>
       </div>
       <div className="auth-actions-row">
         <Link className="button button--primary" to="/login">
           Login
-        </Link>
-        <Link className="button button--ghost" to="/app/dashboard" onClick={() => setDemoAuthenticated(true)}>
-          Demo
         </Link>
       </div>
     </AuthLayout>
@@ -392,63 +705,94 @@ export function DashboardPage() {
 }
 
 export function OrganizationsPage() {
+  const { activeMembership, activeOrgId, memberships, setActiveOrg, user } = useAuth()
+  const [pendingOrgId, setPendingOrgId] = useState<number | null>(null)
+  const [message, setMessage] = useState('')
+  const [error, setError] = useState('')
+
+  const switchOrg = async (orgId: number) => {
+    setPendingOrgId(orgId)
+    setError('')
+    setMessage('')
+
+    const result = await setActiveOrg(orgId)
+
+    setPendingOrgId(null)
+    if (!result.ok) {
+      setError(result.error ?? 'Unable to switch organization.')
+      return
+    }
+
+    setMessage('Active organization updated.')
+  }
+
   return (
     <div className="page-stack">
-      <div className="stack-grid stack-grid--organizations">
-        <SectionCard title="Create Organization">
-          <AuthField label="Organization" placeholder="e.g. Team Alpha" icon="organization" />
-          <div className="button-row">
-            <button type="button" className="button button--primary">
-              Create
-            </button>
+      {message ? <FormMessage tone="success">{message}</FormMessage> : null}
+      {error ? <FormMessage tone="error">{error}</FormMessage> : null}
+
+      <SectionCard title="Active Organization" subtitle="Current session context">
+        {activeMembership ? (
+          <div className="detail-pairs">
+            <DetailPair label="Name" value={activeMembership.org_name} />
+            <DetailPair label="Org Role" value={activeMembership.role} />
+            <DetailPair label="System Role" value={user?.role ?? 'user'} />
+            <DetailPair label="Org ID" value={`${activeOrgId}`} />
           </div>
-        </SectionCard>
-
-        <SectionCard title="Join Organization">
-          <label className="auth-field">
-            <span>Select</span>
-            <div className="auth-field__input">
-              <span className="auth-field__icon">
-                <Icon name="search" />
-              </span>
-              <select defaultValue="Local Dev Org">
-                <option>Local Dev Org</option>
-                <option>Campus QA Council</option>
-                <option>Pilot Support Ops</option>
-              </select>
-            </div>
-          </label>
-        </SectionCard>
-      </div>
-
-      <SectionCard title="Your Org">
-        <div className="chip-row">
-          {organizations.map((organization) => (
-            <span key={organization.name} className="pill pill--success">
-              {organization.name}
-            </span>
-          ))}
-        </div>
+        ) : (
+          <p className="body-copy">
+            No active organization is set yet. Pick one below to unlock organization pages.
+          </p>
+        )}
       </SectionCard>
 
-      {organizations.map((organization) => (
-        <SectionCard key={organization.name} title={organization.name} subtitle={organization.summary}>
-          <div className="detail-pairs">
-            <DetailPair label="Owner" value={organization.owner} />
-            <DetailPair label="Members" value={`${organization.members}`} />
-            <DetailPair label="Projects" value={`${organization.projects}`} />
-            <DetailPair label="Status" value={organization.status} />
+      <SectionCard
+        title="Memberships"
+        subtitle={`${memberships.length} organization${memberships.length === 1 ? '' : 's'}`}
+      >
+        {memberships.length > 0 ? (
+          <div className="list-stack">
+            {memberships.map((membership) => (
+              <ListRow
+                key={membership.org_id}
+                icon="organization"
+                title={membership.org_name}
+                detail={`${membership.role}${membership.is_owner ? ' | Owner' : ''}`}
+                meta={membership.org_id === activeOrgId ? 'Active' : `Org #${membership.org_id}`}
+                action={
+                  membership.org_id === activeOrgId ? (
+                    <span className="pill pill--success">Active</span>
+                  ) : (
+                    <button
+                      type="button"
+                      className="inline-link"
+                      disabled={pendingOrgId === membership.org_id}
+                      onClick={() => void switchOrg(membership.org_id)}
+                    >
+                      {pendingOrgId === membership.org_id ? 'Switching...' : 'Use'}
+                    </button>
+                  )
+                }
+              />
+            ))}
           </div>
-          <div className="button-row">
-            <button type="button" className="button button--ghost">
-              Open
-            </button>
-            <button type="button" className="button button--danger">
-              Delete
-            </button>
+        ) : (
+          <p className="body-copy">Your account is not attached to an organization yet.</p>
+        )}
+      </SectionCard>
+
+      <SectionCard title="Access Notes">
+        <div className="bullet-stack">
+          <div className="bullet-row">
+            <span className="bullet-row__marker" />
+            <p>Dashboard, projects, issues, checklist, and admin areas require an active organization.</p>
           </div>
-        </SectionCard>
-      ))}
+          <div className="bullet-row">
+            <span className="bullet-row__marker" />
+            <p>Owner-only access unlocks Manage Users. Super admins unlock Super Admin and OpenClaw.</p>
+          </div>
+        </div>
+      </SectionCard>
     </div>
   )
 }
@@ -626,29 +970,35 @@ export function OpenClawPage() {
 }
 
 export function ManageUsersPage() {
-  const users: Array<[string, string, string]> = [
-    ['superadmin', 'super_admin', '2m'],
-    ['qa.captain', 'org_owner', '14m'],
-    ['support.lead', 'manager', '32m'],
-    ['triage.bot', 'service', '1h'],
+  const { activeMembership, user } = useAuth()
+  const accessRows: Array<[string, string, string]> = [
+    [user?.username ?? 'current user', user?.role ?? 'user', activeMembership?.role ?? 'No org'],
+    ['Project Manager', 'Issue creation', 'Project Manager'],
+    ['QA Lead', 'Checklist manager', 'QA Lead'],
+    ['Owner', 'Member role edits', 'owner'],
   ]
 
   return (
     <div className="page-stack">
-      <SectionCard title="Users">
+      <SectionCard title="Owner Gate" subtitle="This page is restricted to active organization owners.">
+        <div className="detail-pairs">
+          <DetailPair label="User" value={user?.username ?? 'Unknown'} />
+          <DetailPair label="System" value={user?.role ?? 'user'} />
+          <DetailPair label="Org Role" value={activeMembership?.role ?? 'No org'} />
+          <DetailPair label="Org" value={activeMembership?.org_name ?? 'No org'} />
+        </div>
+      </SectionCard>
+
+      <SectionCard title="Access Map">
         <div className="list-stack">
-          {users.map(([name, role, time]) => (
+          {accessRows.map(([name, role, scope]) => (
             <ListRow
-              key={name}
+              key={`${name}-${role}`}
               icon="users"
               title={name}
               detail={role}
-              meta={time}
-              action={
-                <button type="button" className="inline-link">
-                  Review
-                </button>
-              }
+              meta={scope}
+              action={<span className="pill">{scope}</span>}
             />
           ))}
         </div>
@@ -739,38 +1089,70 @@ export function SettingsPage() {
 }
 
 export function ProfilePage() {
+  const { activeMembership, memberships, user } = useAuth()
+  const quickActions = [
+    ...(user?.role === 'super_admin'
+      ? [{ icon: 'shield' as const, title: 'Super Admin', detail: 'Global access', badge: 'Open' }]
+      : []),
+    ...(activeMembership?.role === 'owner'
+      ? [{ icon: 'users' as const, title: 'Manage Users', detail: 'Owner controls', badge: 'Owner' }]
+      : []),
+    { icon: 'settings' as const, title: 'Settings', detail: 'App defaults', badge: 'Edit' },
+  ]
+  const profileStats = [
+    {
+      label: 'System',
+      value: user?.role === 'super_admin' ? 'Super' : user?.role === 'admin' ? 'Admin' : 'User',
+      note: 'role',
+      tone: 'steel' as const,
+    },
+    { label: 'Teams', value: `${memberships.length}`, note: 'memberships', tone: 'success' as const },
+    {
+      label: 'Org',
+      value: activeMembership?.role ? initialsFromUsername(activeMembership.role) : 'N/A',
+      note: activeMembership?.role ?? 'none',
+      tone: 'alert' as const,
+    },
+  ]
+
   return (
     <div className="page-stack">
-      <SectionCard title="Super Admin">
+      <SectionCard title={user?.role === 'super_admin' ? 'Super Admin' : 'Profile'}>
         <div className="profile-hero">
-          <div className="profile-hero__avatar">SA</div>
+          <div className="profile-hero__avatar">{initialsFromUsername(user?.username ?? 'User')}</div>
           <div className="profile-hero__copy">
-            <strong>superadmin</strong>
-            <p>superadmin@local.dev</p>
+            <strong>{user?.username ?? 'Unknown user'}</strong>
+            <p>{user?.email ?? 'No email'}</p>
           </div>
           <span className="pill pill--success">Online</span>
         </div>
       </SectionCard>
 
       <div className="stats-grid">
-        {profileSummary.map((stat) => (
+        {profileStats.map((stat) => (
           <StatCard key={stat.label} stat={stat} />
         ))}
       </div>
 
       <SectionCard title="Quick Actions">
         <div className="list-stack">
-          <ListRow icon="shield" title="Super Admin" detail="Global access" action={<span className="pill pill--dark">Open</span>} />
-          <ListRow icon="users" title="Manage Users" detail="Roles + invites" action={<span className="pill">Review</span>} />
-          <ListRow icon="settings" title="Settings" detail="App defaults" action={<span className="pill">Edit</span>} />
+          {quickActions.map((item) => (
+            <ListRow
+              key={item.title}
+              icon={item.icon}
+              title={item.title}
+              detail={item.detail}
+              action={<span className="pill">{item.badge}</span>}
+            />
+          ))}
         </div>
       </SectionCard>
 
       <SectionCard title="Session">
         <div className="detail-pairs">
-          <DetailPair label="Role" value="super_admin" />
-          <DetailPair label="Org" value="Local Dev Org" />
-          <DetailPair label="Last Active" value="2m ago" />
+          <DetailPair label="System Role" value={user?.role ?? 'user'} />
+          <DetailPair label="Org Role" value={activeMembership?.role ?? 'No active org'} />
+          <DetailPair label="Org" value={activeMembership?.org_name ?? 'No active org'} />
           <DetailPair label="Device" value="Mobile Web" />
         </div>
       </SectionCard>
@@ -826,9 +1208,3 @@ export function NotificationsPage() {
     </div>
   )
 }
-
-
-
-
-
-

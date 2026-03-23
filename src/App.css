@@ -296,6 +296,7 @@
 .auth-card__header,
 .auth-card__footer,
 .auth-form,
+.auth-stack,
 .page-stack,
 .section-card__body,
 .list-stack,
@@ -311,6 +312,27 @@
 .auth-card__footer p,
 .auth-card__footer a {
   font-size: 0.86rem;
+}
+
+.form-message {
+  padding: 12px 14px;
+  border-radius: 16px;
+  border: 1px solid var(--border-subtle);
+  background: var(--surface-card-muted);
+}
+
+.form-message--error {
+  color: var(--pill-danger-text);
+  background: var(--pill-danger-bg);
+}
+
+.form-message--success {
+  color: var(--pill-success-text);
+  background: var(--pill-success-bg);
+}
+
+.form-message--info {
+  color: var(--text-primary);
 }
 
 .auth-field {
@@ -354,6 +376,10 @@
   border-radius: 16px;
   background: var(--input-bg);
   border: 1px solid var(--input-border);
+}
+
+.auth-field__input.is-error {
+  border-color: rgba(229, 90, 90, 0.42);
 }
 
 .auth-field__input input,
@@ -422,6 +448,12 @@
   align-items: center;
   justify-content: center;
   font-weight: 700;
+}
+
+.button:disabled,
+.inline-link:disabled {
+  opacity: 0.65;
+  cursor: not-allowed;
 }
 
 .button--primary {
@@ -1324,6 +1356,20 @@
   gap: 10px;
 }
 
+.drawer-usercard {
+  padding: 14px;
+  display: grid;
+  gap: 4px;
+  border-radius: 18px;
+  background: var(--drawer-link-bg);
+  border: 1px solid var(--border-subtle);
+}
+
+.drawer-usercard p,
+.drawer-usercard small {
+  color: var(--text-muted-soft);
+}
+
 .drawer-link {
   display: flex;
   align-items: center;
@@ -1333,6 +1379,12 @@
   border-radius: 18px;
   color: var(--drawer-text);
   background: var(--drawer-link-bg);
+}
+
+.drawer-link--button {
+  width: 100%;
+  border: 0;
+  font: inherit;
 }
 
 .drawer-link.is-active {

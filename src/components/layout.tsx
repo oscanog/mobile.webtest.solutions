@@ -1,7 +1,7 @@
 import { useState, type ReactNode } from 'react'
 import { NavLink, Outlet, useLocation } from 'react-router-dom'
-import { appRoutes, bottomNavItems, drawerItems, type AppRouteDefinition } from '../app-data'
-import { setDemoAuthenticated } from '../demo-auth'
+import { bottomNavItems, findAppRoute, type IconName } from '../app-data'
+import { hasOrgRole, hasSystemRole, useAuth } from '../auth-context'
 import { useNotifications } from '../notifications-context'
 import { useTheme } from '../theme-context'
 import { BrandMark, Icon, ThemeToggle } from './ui'
@@ -21,9 +21,29 @@ export function AppViewport({ children }: { children: ReactNode }) {
 
 export function AppShell() {
   const location = useLocation()
-  const activeRoute = resolveAppRoute(location.pathname)
+  const activeRoute = findAppRoute(location.pathname)
   const [isDrawerOpen, setIsDrawerOpen] = useState(false)
   const { unreadCount } = useNotifications()
+  const { activeMembership, defaultAppPath, logout, session, user } = useAuth()
+
+  const drawerItems: Array<{
+    label: string
+    to: string
+    icon: IconName
+    tone?: 'default' | 'danger'
+  }> = [
+    ...(hasSystemRole(session, 'super_admin')
+      ? [
+          { label: 'Super Admin', to: '/app/super-admin', icon: 'shield' as const },
+          { label: 'OpenClaw', to: '/app/openclaw', icon: 'spark' as const },
+        ]
+      : []),
+    { label: 'Checklist', to: '/app/checklist', icon: 'checklist' },
+    { label: 'Discord Link', to: '/app/discord-links', icon: 'discord' },
+    ...(hasOrgRole(session, 'owner') ? [{ label: 'Manage Users', to: '/app/manage-users', icon: 'users' as const }] : []),
+    { label: 'Settings', to: '/app/settings', icon: 'settings' },
+    { label: 'Logout', to: '/login', icon: 'logout', tone: 'danger' },
+  ]
 
   return (
     <div className="app-shell">
@@ -38,27 +58,48 @@ export function AppShell() {
         <div className="side-drawer__header">
           <BrandMark />
         </div>
+        {user ? (
+          <div className="drawer-usercard">
+            <strong>{user.username}</strong>
+            <p>{user.email}</p>
+            <span>
+              {user.role}
+              {activeMembership ? ` / ${activeMembership.role}` : ''}
+            </span>
+            {activeMembership ? <small>{activeMembership.org_name}</small> : <small>No active organization</small>}
+          </div>
+        ) : null}
         <div className="drawer-section">
-          {drawerItems.map((item) => (
-            <NavLink
-              key={item.to}
-              to={item.to}
-              onClick={() => {
-                if (item.tone === 'danger') {
-                  setDemoAuthenticated(false)
-                }
-                setIsDrawerOpen(false)
-              }}
-              className={({ isActive }) =>
-                `drawer-link ${isActive ? 'is-active' : ''} ${item.tone === 'danger' ? 'is-danger' : ''}`
-              }
-            >
-              <span className="icon-wrap">
-                <Icon name={item.icon} />
-              </span>
-              <span className="drawer-link__label">{item.label}</span>
-            </NavLink>
-          ))}
+          {drawerItems.map((item) =>
+            item.tone === 'danger' ? (
+              <button
+                key={item.label}
+                type="button"
+                className="drawer-link drawer-link--button is-danger"
+                onClick={() => {
+                  void logout()
+                  setIsDrawerOpen(false)
+                }}
+              >
+                <span className="icon-wrap">
+                  <Icon name={item.icon} />
+                </span>
+                <span className="drawer-link__label">{item.label}</span>
+              </button>
+            ) : (
+              <NavLink
+                key={item.to}
+                to={item.to}
+                onClick={() => setIsDrawerOpen(false)}
+                className={({ isActive }) => `drawer-link ${isActive ? 'is-active' : ''}`}
+              >
+                <span className="icon-wrap">
+                  <Icon name={item.icon} />
+                </span>
+                <span className="drawer-link__label">{item.label}</span>
+              </NavLink>
+            )
+          )}
         </div>
       </aside>
 
@@ -74,9 +115,12 @@ export function AppShell() {
           </button>
 
           <div className="top-bar__titles">
-            <p className="top-bar__eyebrow">BugCatcher mobile</p>
+            <p className="top-bar__eyebrow">{activeMembership ? activeMembership.org_name : 'No active organization'}</p>
             <h1>{activeRoute.title}</h1>
-            {activeRoute.subtitle ? <p>{activeRoute.subtitle}</p> : null}
+            <p>
+              {activeRoute.subtitle}
+              {user ? ` | ${user.username} (${user.role}${activeMembership ? ` / ${activeMembership.role}` : ''})` : ''}
+            </p>
           </div>
 
           <div className="top-bar__actions">
@@ -100,7 +144,7 @@ export function AppShell() {
           {bottomNavItems.map((item) => (
             <NavLink
               key={item.to}
-              to={item.to}
+              to={item.to === '/app/dashboard' && !activeMembership ? defaultAppPath : item.to}
               className={({ isActive }) => `bottom-nav__item ${isActive ? 'is-active' : ''}`}
               title={item.label}
               data-tooltip={item.label}
@@ -112,12 +156,5 @@ export function AppShell() {
         </nav>
       </div>
     </div>
-  )
-}
-
-function resolveAppRoute(pathname: string): AppRouteDefinition {
-  return (
-    appRoutes.find((route) => pathname === route.path || pathname.startsWith(`${route.path}/`)) ??
-    appRoutes[0]
   )
 }

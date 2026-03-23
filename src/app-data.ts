@@ -1,3 +1,5 @@
+import type { OrgRole, SystemRole } from './auth-context'
+
 export type IconName =
   | 'dashboard'
   | 'organization'
@@ -25,13 +27,6 @@ export interface NavItem {
   shortLabel?: string
   to: string
   icon: IconName
-}
-
-export interface DrawerItem {
-  label: string
-  to: string
-  icon: IconName
-  tone?: 'default' | 'danger'
 }
 
 export interface StatCardData {
@@ -87,6 +82,10 @@ export interface AppRouteDefinition {
   title: string
   subtitle?: string
   navKey: 'dashboard' | 'organizations' | 'projects' | 'reports' | 'profile' | 'utility'
+  requiresAuth?: boolean
+  requiresOrg?: boolean
+  requiredSystemRole?: SystemRole
+  requiredOrgRole?: OrgRole
 }
 
 export interface LeaderboardItem {
@@ -140,30 +139,48 @@ export const bottomNavItems: NavItem[] = [
   { label: 'Profile', shortLabel: 'Profile', to: '/app/profile', icon: 'users' },
 ]
 
-export const drawerItems: DrawerItem[] = [
-  { label: 'Super Admin', to: '/app/super-admin', icon: 'shield' },
-  { label: 'Checklist', to: '/app/checklist', icon: 'checklist' },
-  { label: 'Discord Link', to: '/app/discord-links', icon: 'discord' },
-  { label: 'Manage Users', to: '/app/manage-users', icon: 'users' },
-  { label: 'OpenClaw', to: '/app/openclaw', icon: 'spark' },
-  { label: 'Settings', to: '/app/settings', icon: 'settings' },
-  { label: 'Logout', to: '/login', icon: 'logout', tone: 'danger' },
+export const appRoutes: AppRouteDefinition[] = [
+  { path: '/app/dashboard', title: 'Dashboard', subtitle: 'Daily chart', navKey: 'dashboard', requiresAuth: true, requiresOrg: true },
+  { path: '/app/organizations', title: 'Organization', subtitle: 'Membership hub', navKey: 'organizations', requiresAuth: true },
+  { path: '/app/projects', title: 'Projects', subtitle: 'Active work', navKey: 'projects', requiresAuth: true, requiresOrg: true },
+  { path: '/app/reports', title: 'Issues', subtitle: 'Bug queue', navKey: 'reports', requiresAuth: true, requiresOrg: true },
+  { path: '/app/profile', title: 'Profile', subtitle: 'Account center', navKey: 'profile', requiresAuth: true },
+  { path: '/app/notifications', title: 'Notifications', subtitle: 'In app inbox', navKey: 'utility', requiresAuth: true },
+  {
+    path: '/app/super-admin',
+    title: 'Super Admin',
+    subtitle: 'Control center',
+    navKey: 'utility',
+    requiresAuth: true,
+    requiresOrg: true,
+    requiredSystemRole: 'super_admin',
+  },
+  {
+    path: '/app/openclaw',
+    title: 'OpenClaw',
+    subtitle: 'AI control',
+    navKey: 'utility',
+    requiresAuth: true,
+    requiresOrg: true,
+    requiredSystemRole: 'super_admin',
+  },
+  {
+    path: '/app/manage-users',
+    title: 'Manage Users',
+    subtitle: 'Access map',
+    navKey: 'utility',
+    requiresAuth: true,
+    requiresOrg: true,
+    requiredOrgRole: 'owner',
+  },
+  { path: '/app/checklist', title: 'Checklist', subtitle: 'Release tasks', navKey: 'utility', requiresAuth: true, requiresOrg: true },
+  { path: '/app/discord-links', title: 'Discord Link', subtitle: 'Channel health', navKey: 'utility', requiresAuth: true, requiresOrg: true },
+  { path: '/app/settings', title: 'Settings', subtitle: 'App defaults', navKey: 'utility', requiresAuth: true },
 ]
 
-export const appRoutes: AppRouteDefinition[] = [
-  { path: '/app/dashboard', title: 'Dashboard', subtitle: 'Daily chart', navKey: 'dashboard' },
-  { path: '/app/organizations', title: 'Organization', subtitle: 'Create + join', navKey: 'organizations' },
-  { path: '/app/projects', title: 'Projects', subtitle: 'Active work', navKey: 'projects' },
-  { path: '/app/reports', title: 'Issues', subtitle: 'Bug queue', navKey: 'reports' },
-  { path: '/app/profile', title: 'Profile', subtitle: 'Account center', navKey: 'profile' },
-  { path: '/app/notifications', title: 'Notifications', subtitle: 'In app inbox', navKey: 'utility' },
-  { path: '/app/super-admin', title: 'Super Admin', subtitle: 'Control center', navKey: 'utility' },
-  { path: '/app/openclaw', title: 'OpenClaw', subtitle: 'AI control', navKey: 'utility' },
-  { path: '/app/manage-users', title: 'Manage Users', subtitle: 'Access map', navKey: 'utility' },
-  { path: '/app/checklist', title: 'Checklist', subtitle: 'Release tasks', navKey: 'utility' },
-  { path: '/app/discord-links', title: 'Discord Link', subtitle: 'Channel health', navKey: 'utility' },
-  { path: '/app/settings', title: 'Settings', subtitle: 'App defaults', navKey: 'utility' },
-]
+export function findAppRoute(pathname: string): AppRouteDefinition {
+  return appRoutes.find((route) => pathname === route.path || pathname.startsWith(`${route.path}/`)) ?? appRoutes[0]
+}
 
 export const landingFeatures: LandingFeatureData[] = [
   {

@@ -1,4 +1,4 @@
-import type { ReactNode } from 'react'
+import type { ChangeEventHandler, InputHTMLAttributes, ReactNode } from 'react'
 import type { IconName, StatCardData } from '../app-data'
 import { useTheme } from '../theme-context'
 
@@ -153,20 +153,46 @@ export function AuthField({
   placeholder,
   icon,
   type = 'text',
+  name,
+  value,
+  onChange,
+  autoComplete,
+  disabled = false,
+  inputMode,
+  maxLength,
+  error,
 }: {
   label: string
   placeholder: string
   icon: IconName
   type?: 'text' | 'email' | 'password'
+  name?: string
+  value?: string
+  onChange?: ChangeEventHandler<HTMLInputElement>
+  autoComplete?: InputHTMLAttributes<HTMLInputElement>['autoComplete']
+  disabled?: boolean
+  inputMode?: InputHTMLAttributes<HTMLInputElement>['inputMode']
+  maxLength?: number
+  error?: boolean
 }) {
   return (
     <label className="auth-field">
       <span>{label}</span>
-      <div className="auth-field__input">
+      <div className={`auth-field__input ${error ? 'is-error' : ''}`}>
         <span className="auth-field__icon">
           <Icon name={icon} />
         </span>
-        <input type={type} placeholder={placeholder} />
+        <input
+          type={type}
+          name={name}
+          value={value}
+          onChange={onChange}
+          placeholder={placeholder}
+          autoComplete={autoComplete}
+          disabled={disabled}
+          inputMode={inputMode}
+          maxLength={maxLength}
+        />
       </div>
     </label>
   )

@@ -1,5 +1,8 @@
+import type { ReactElement } from 'react'
 import { BrowserRouter, Navigate, Route, Routes } from 'react-router-dom'
 import './App.css'
+import { findAppRoute } from './app-data'
+import { AuthProvider, getDefaultAppPath, hasOrgRole, hasSystemRole, useAuth } from './auth-context'
 import { AppShell, AppViewport } from './components/layout'
 import { NotificationProvider } from './notifications-context'
 import { ThemeProvider } from './theme-context'
@@ -27,38 +30,134 @@ import {
 function App() {
   return (
     <ThemeProvider>
-      <NotificationProvider>
-        <BrowserRouter>
-          <AppViewport>
-            <Routes>
-              <Route path="/" element={<LandingPage />} />
-              <Route path="/login" element={<LoginPage />} />
-              <Route path="/signup" element={<SignupPage />} />
-              <Route path="/forgot-password" element={<ForgotPasswordPage />} />
-              <Route path="/forgot-password/verify" element={<ForgotPasswordVerifyPage />} />
-              <Route path="/forgot-password/success" element={<ForgotPasswordSuccessPage />} />
-              <Route path="/app" element={<AppShell />}>
-                <Route index element={<Navigate to="/app/dashboard" replace />} />
-                <Route path="dashboard" element={<DashboardPage />} />
-                <Route path="organizations" element={<OrganizationsPage />} />
-                <Route path="projects" element={<ProjectsPage />} />
-                <Route path="reports" element={<ReportsPage />} />
-                <Route path="profile" element={<ProfilePage />} />
-                <Route path="notifications" element={<NotificationsPage />} />
-                <Route path="super-admin" element={<SuperAdminPage />} />
-                <Route path="openclaw" element={<OpenClawPage />} />
-                <Route path="manage-users" element={<ManageUsersPage />} />
-                <Route path="checklist" element={<ChecklistPage />} />
-                <Route path="discord-links" element={<DiscordLinksPage />} />
-                <Route path="settings" element={<SettingsPage />} />
-              </Route>
-              <Route path="*" element={<Navigate to="/" replace />} />
-            </Routes>
-          </AppViewport>
-        </BrowserRouter>
-      </NotificationProvider>
+      <AuthProvider>
+        <NotificationProvider>
+          <BrowserRouter>
+            <AppViewport>
+              <Routes>
+                <Route path="/" element={<LandingPage />} />
+                <Route
+                  path="/login"
+                  element={
+                    <GuestOnlyRoute>
+                      <LoginPage />
+                    </GuestOnlyRoute>
+                  }
+                />
+                <Route
+                  path="/signup"
+                  element={
+                    <GuestOnlyRoute>
+                      <SignupPage />
+                    </GuestOnlyRoute>
+                  }
+                />
+                <Route
+                  path="/forgot-password"
+                  element={
+                    <GuestOnlyRoute>
+                      <ForgotPasswordPage />
+                    </GuestOnlyRoute>
+                  }
+                />
+                <Route
+                  path="/forgot-password/verify"
+                  element={
+                    <GuestOnlyRoute>
+                      <ForgotPasswordVerifyPage />
+                    </GuestOnlyRoute>
+                  }
+                />
+                <Route
+                  path="/forgot-password/success"
+                  element={
+                    <GuestOnlyRoute>
+                      <ForgotPasswordSuccessPage />
+                    </GuestOnlyRoute>
+                  }
+                />
+                <Route
+                  path="/app"
+                  element={
+                    <RequireAuth>
+                      <AppShell />
+                    </RequireAuth>
+                  }
+                >
+                  <Route index element={<AppIndexRedirect />} />
+                  <Route path="dashboard" element={<GuardedAppRoute path="/app/dashboard"><DashboardPage /></GuardedAppRoute>} />
+                  <Route path="organizations" element={<GuardedAppRoute path="/app/organizations"><OrganizationsPage /></GuardedAppRoute>} />
+                  <Route path="projects" element={<GuardedAppRoute path="/app/projects"><ProjectsPage /></GuardedAppRoute>} />
+                  <Route path="reports" element={<GuardedAppRoute path="/app/reports"><ReportsPage /></GuardedAppRoute>} />
+                  <Route path="profile" element={<GuardedAppRoute path="/app/profile"><ProfilePage /></GuardedAppRoute>} />
+                  <Route path="notifications" element={<GuardedAppRoute path="/app/notifications"><NotificationsPage /></GuardedAppRoute>} />
+                  <Route path="super-admin" element={<GuardedAppRoute path="/app/super-admin"><SuperAdminPage /></GuardedAppRoute>} />
+                  <Route path="openclaw" element={<GuardedAppRoute path="/app/openclaw"><OpenClawPage /></GuardedAppRoute>} />
+                  <Route path="manage-users" element={<GuardedAppRoute path="/app/manage-users"><ManageUsersPage /></GuardedAppRoute>} />
+                  <Route path="checklist" element={<GuardedAppRoute path="/app/checklist"><ChecklistPage /></GuardedAppRoute>} />
+                  <Route path="discord-links" element={<GuardedAppRoute path="/app/discord-links"><DiscordLinksPage /></GuardedAppRoute>} />
+                  <Route path="settings" element={<GuardedAppRoute path="/app/settings"><SettingsPage /></GuardedAppRoute>} />
+                </Route>
+                <Route path="*" element={<Navigate to="/" replace />} />
+              </Routes>
+            </AppViewport>
+          </BrowserRouter>
+        </NotificationProvider>
+      </AuthProvider>
     </ThemeProvider>
   )
+}
+
+function GuestOnlyRoute({ children }: { children: ReactElement }) {
+  const { isBootstrapping, isAuthenticated, session } = useAuth()
+
+  if (isBootstrapping) {
+    return null
+  }
+
+  if (isAuthenticated) {
+    return <Navigate to={getDefaultAppPath(session)} replace />
+  }
+
+  return children
+}
+
+function RequireAuth({ children }: { children: ReactElement }) {
+  const { isBootstrapping, isAuthenticated } = useAuth()
+
+  if (isBootstrapping) {
+    return null
+  }
+
+  if (!isAuthenticated) {
+    return <Navigate to="/login" replace />
+  }
+
+  return children
+}
+
+function AppIndexRedirect() {
+  const { session } = useAuth()
+  return <Navigate to={getDefaultAppPath(session)} replace />
+}
+
+function GuardedAppRoute({ path, children }: { path: string; children: ReactElement }) {
+  const route = findAppRoute(path)
+  const { session, hasActiveOrg } = useAuth()
+
+  if (route.requiresOrg && !hasActiveOrg) {
+    return <Navigate to="/app/organizations" replace />
+  }
+
+  if (route.requiredSystemRole && !hasSystemRole(session, route.requiredSystemRole)) {
+    return <Navigate to={getDefaultAppPath(session)} replace />
+  }
+
+  if (route.requiredOrgRole && !hasOrgRole(session, route.requiredOrgRole)) {
+    return <Navigate to={getDefaultAppPath(session)} replace />
+  }
+
+  return children
 }
 
 export default App
