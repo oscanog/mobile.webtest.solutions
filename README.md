@@ -114,3 +114,32 @@ bun run dev
 bun run lint
 bun run build
 ```
+
+## Deployment
+
+GitHub Actions deploys this app to the GCloud VM on every push to `main`.
+
+Live hostnames:
+
+- `https://m.bugcatcher.online`
+- `https://mobile.bugcatcher.online`
+
+Server target:
+
+- web root: `/var/www/bugcatcher-mobileweb`
+- nginx config: `/etc/nginx/sites-available/bugcatcher-mobileweb.conf`
+
+Required GitHub repository secrets:
+
+- `DEPLOY_HOST`: `35.247.181.223`
+- `DEPLOY_USER`: `m_viner001`
+- `DEPLOY_SSH_PRIVATE_KEY`: private key that can SSH to the VM
+- `DEPLOY_KNOWN_HOSTS`: output from `ssh-keyscan -H 35.247.181.223`
+
+Workflow:
+
+1. `npm ci`
+2. `npm run build`
+3. Upload release bundle to the VM
+4. Publish `dist/` to `/var/www/bugcatcher-mobileweb`
+5. Install Nginx config, issue/reuse TLS certs, test config, reload Nginx
