@@ -21,13 +21,19 @@ export interface NotificationRecord {
   checklist_batch_id: number | null
   checklist_item_id: number | null
   actor: NotificationActor | null
-  meta: Record<string, unknown>
+  meta: Record<string, unknown> | null
 }
 
 export interface NotificationsResponse {
   items: NotificationRecord[]
   unread_count: number
   total_count: number
+}
+
+export interface NotificationSocketConnection {
+  socket_token: string
+  path: string
+  expires_in: number
 }
 
 export function fetchNotifications(accessToken: string, state: 'all' | 'unread' = 'all', limit = 25) {
@@ -48,6 +54,17 @@ export function markNotificationRead(accessToken: string, notificationId: number
 export function markAllNotificationsRead(accessToken: string) {
   return requestJson<{ updated: number }>(
     '/notifications/read-all',
+    {
+      method: 'POST',
+      body: JSON.stringify({}),
+    },
+    accessToken,
+  )
+}
+
+export function requestNotificationSocketConnection(accessToken: string) {
+  return requestJson<{ connection: NotificationSocketConnection }>(
+    '/realtime/socket-token',
     {
       method: 'POST',
       body: JSON.stringify({}),

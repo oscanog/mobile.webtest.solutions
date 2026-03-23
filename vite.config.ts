@@ -9,6 +9,11 @@ export default defineConfig({
         target: 'http://localhost/bugcatcher',
         changeOrigin: true,
       },
+      '/ws/notifications': {
+        target: 'ws://127.0.0.1:8090',
+        changeOrigin: true,
+        ws: true,
+      },
     },
   },
 })

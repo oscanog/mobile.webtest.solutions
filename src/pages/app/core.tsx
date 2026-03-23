@@ -405,7 +405,8 @@ export function ProfilePage() {
 
 export function NotificationsPage() {
   const navigate = useNavigate()
-  const { error, isLoading, notifications, unreadCount, markAllAsRead, openNotification } = useNotifications()
+  const { connectionHint, connectionState, error, isLoading, notifications, unreadCount, markAllAsRead, openNotification } =
+    useNotifications()
   const readCount = notifications.length - unreadCount
   const priorityCount = notifications.filter((notification) => !notification.read_at && notification.severity === 'alert').length
 
@@ -417,6 +418,7 @@ export function NotificationsPage() {
   return (
     <div className="page-stack">
       {error ? <FormMessage tone="error">{error}</FormMessage> : null}
+      {connectionHint ? <FormMessage tone={connectionState === 'connected' ? 'success' : 'info'}>{connectionHint}</FormMessage> : null}
 
       <SectionCard title="Today">
         <div className="stats-grid">
