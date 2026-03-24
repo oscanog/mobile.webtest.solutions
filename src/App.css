@@ -2499,6 +2499,35 @@
   gap: 10px;
 }
 
+.checklist-batch-gallery {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.checklist-batch-gallery__item {
+  display: grid;
+  gap: 8px;
+  color: inherit;
+  text-decoration: none;
+}
+
+.checklist-batch-gallery__item img {
+  width: 100%;
+  aspect-ratio: 4 / 3;
+  object-fit: cover;
+  border-radius: 18px;
+  border: 1px solid var(--border-soft);
+  background: var(--surface-card-muted);
+}
+
+.checklist-batch-gallery__item span {
+  font-size: 0.82rem;
+  color: var(--text-muted);
+  line-height: 1.3;
+  word-break: break-word;
+}
+
 .checklist-attachment {
   display: grid;
   gap: 4px;
@@ -2545,6 +2574,10 @@
   .caught-indicator {
     padding: 10px 20px;
     font-size: 0.95rem;
+  }
+
+  .checklist-batch-gallery {
+    grid-template-columns: minmax(0, 1fr);
   }
 }
 

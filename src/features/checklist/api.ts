@@ -75,8 +75,11 @@ export interface ChecklistAttachment {
   id: number
   original_name: string
   file_path: string
+  mime_type?: string
+  file_size?: number
   uploaded_by_name?: string | null
   created_at?: string
+  source_type?: string
 }
 
 export interface ChecklistAssigneeOption {

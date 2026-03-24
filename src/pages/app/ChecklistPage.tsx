@@ -4,8 +4,12 @@ import { useAuth } from '../../auth-context'
 import { DetailPair, ListRow, SectionCard } from '../../components/ui'
 import { canManageChecklist } from '../../lib/access'
 import { getErrorMessage } from '../../lib/api'
-import { fetchChecklistBatch, fetchChecklistBatches, type ChecklistBatchDetailResponse, type ChecklistBatchesResponse } from '../../features/checklist/api'
+import { fetchChecklistBatch, fetchChecklistBatches, type ChecklistAttachment, type ChecklistBatchDetailResponse, type ChecklistBatchesResponse } from '../../features/checklist/api'
 import { EmptySection, FormMessage, LoadingSection } from '../shared'
+
+function isImageAttachment(attachment: ChecklistAttachment) {
+  return (attachment.mime_type || '').startsWith('image/')
+}
 
 export function ChecklistPage() {
   const { activeOrgId, session } = useAuth()
@@ -110,6 +114,47 @@ export function ChecklistBatchDetailPage() {
               <DetailPair label="Status" value={data.batch.status} />
               <DetailPair label="QA Lead" value={data.batch.qa_lead_name || 'Unassigned'} />
             </div>
+          </SectionCard>
+
+          <SectionCard title="Screenshots" subtitle={`${data.attachments.length} file${data.attachments.length === 1 ? '' : 's'}`}>
+            {data.attachments.length ? (
+              <>
+                {data.attachments.filter(isImageAttachment).length ? (
+                  <div className="checklist-batch-gallery">
+                    {data.attachments.filter(isImageAttachment).map((attachment) => (
+                      <a
+                        key={attachment.id}
+                        className="checklist-batch-gallery__item"
+                        href={attachment.file_path || '#'}
+                        target={attachment.file_path ? '_blank' : undefined}
+                        rel={attachment.file_path ? 'noreferrer noopener' : undefined}
+                      >
+                        <img src={attachment.file_path} alt={attachment.original_name} loading="lazy" />
+                        <span>{attachment.original_name}</span>
+                      </a>
+                    ))}
+                  </div>
+                ) : null}
+                {data.attachments.filter((attachment) => !isImageAttachment(attachment)).length ? (
+                  <div className="checklist-attachment-list">
+                    {data.attachments.filter((attachment) => !isImageAttachment(attachment)).map((attachment) => (
+                      <a
+                        key={attachment.id}
+                        className="checklist-attachment"
+                        href={attachment.file_path || '#'}
+                        target={attachment.file_path ? '_blank' : undefined}
+                        rel={attachment.file_path ? 'noreferrer noopener' : undefined}
+                      >
+                        <strong>{attachment.original_name}</strong>
+                        <span>{attachment.uploaded_by_name || 'Unknown uploader'}</span>
+                      </a>
+                    ))}
+                  </div>
+                ) : null}
+              </>
+            ) : (
+              <p className="body-copy">No AI-chat screenshots or batch attachments have been saved for this checklist batch yet.</p>
+            )}
           </SectionCard>
 
           <SectionCard title="Items">
