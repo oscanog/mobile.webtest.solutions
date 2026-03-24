@@ -23,6 +23,27 @@ export interface DashboardRecentIssue {
   author_username: string
 }
 
+export interface DashboardQaLeadChecklistRow {
+  user_id: number | null
+  display_name: string
+  assigned_items: number
+  open_items: number
+  is_unassigned: boolean
+}
+
+export interface DashboardQaLeadChecklistProject {
+  project_id: number
+  project_name: string
+  assigned_items: number
+  open_items: number
+  testers: DashboardQaLeadChecklistRow[]
+}
+
+export interface DashboardQaLeadChecklistSummary {
+  org_totals: DashboardQaLeadChecklistRow[]
+  projects: DashboardQaLeadChecklistProject[]
+}
+
 export interface DashboardOrgContext {
   org_id: number
   org_name: string
@@ -39,6 +60,7 @@ export interface DashboardSummaryResponse {
   summary: DashboardSummary
   trend: DashboardTrendPoint[]
   recent_issues: DashboardRecentIssue[]
+  qa_lead_checklist: DashboardQaLeadChecklistSummary | null
 }
 
 export function fetchDashboardSummary(accessToken: string, orgId: number) {

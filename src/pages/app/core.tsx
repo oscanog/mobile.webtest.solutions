@@ -4,7 +4,12 @@ import { useAuth } from '../../auth-context'
 import { getSidebarItems } from '../../lib/access'
 import { getErrorMessage } from '../../lib/api'
 import { DetailPair, ListRow, SectionCard, StatCard, StatusTile } from '../../components/ui'
-import { fetchDashboardSummary, type DashboardSummaryResponse } from '../../features/dashboard/api'
+import {
+  fetchDashboardSummary,
+  type DashboardQaLeadChecklistProject,
+  type DashboardQaLeadChecklistRow,
+  type DashboardSummaryResponse,
+} from '../../features/dashboard/api'
 import {
   createDiscordLinkCode,
   fetchDiscordLink,
@@ -30,6 +35,39 @@ import {
   type OpenClawRuntimePayload,
 } from '../../features/openclaw/api'
 import { EmptySection, FormMessage, LoadingSection, formatDateTime, formatRelativeTime, initialsFromUsername } from '../shared'
+
+function DashboardChecklistWorkloadRow({ row }: { row: DashboardQaLeadChecklistRow }) {
+  return (
+    <ListRow
+      icon="checklist"
+      title={row.display_name}
+      detail={`Assigned ${row.assigned_items} • Open ${row.open_items}`}
+      meta={row.is_unassigned ? 'Unassigned queue' : 'QA Tester'}
+    />
+  )
+}
+
+function DashboardChecklistWorkloadProject({ project }: { project: DashboardQaLeadChecklistProject }) {
+  return (
+    <article className="workload-project">
+      <div className="workload-project__header">
+        <div className="workload-project__copy">
+          <strong>{project.project_name}</strong>
+          <p>Active project checklist workload</p>
+        </div>
+        <div className="workload-project__metrics" aria-label={`${project.project_name} workload totals`}>
+          <span className="pill">Assigned {project.assigned_items}</span>
+          <span className="pill pill--success">Open {project.open_items}</span>
+        </div>
+      </div>
+      <div className="list-stack">
+        {project.testers.map((row) => (
+          <DashboardChecklistWorkloadRow key={`${project.project_id}-${row.user_id ?? 'unassigned'}`} row={row} />
+        ))}
+      </div>
+    </article>
+  )
+}
 
 export function DashboardPage() {
   const { activeMembership, activeOrgId, session } = useAuth()
@@ -79,6 +117,30 @@ export function DashboardPage() {
               <StatCard stat={{ label: 'Checklist', value: `${data.summary.checklist_open_items}`, note: 'open items', tone: 'success' }} />
             </div>
           </SectionCard>
+
+          {data.qa_lead_checklist ? (
+            <>
+              <SectionCard title="QA Tester Workload" subtitle="Assigned and open checklist items">
+                <div className="list-stack">
+                  {data.qa_lead_checklist.org_totals.map((row) => (
+                    <DashboardChecklistWorkloadRow key={row.user_id ?? 'unassigned'} row={row} />
+                  ))}
+                </div>
+              </SectionCard>
+
+              <SectionCard title="By Project" subtitle="Active project breakdown">
+                {data.qa_lead_checklist.projects.length > 0 ? (
+                  <div className="list-stack">
+                    {data.qa_lead_checklist.projects.map((project) => (
+                      <DashboardChecklistWorkloadProject key={project.project_id} project={project} />
+                    ))}
+                  </div>
+                ) : (
+                  <p className="body-copy">No active project checklist workload is assigned to QA Testers right now.</p>
+                )}
+              </SectionCard>
+            </>
+          ) : null}
 
           <SectionCard title="7-Day Trend">
             <div className="trend-chart">

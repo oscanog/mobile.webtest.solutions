@@ -1683,6 +1683,36 @@
   color: var(--text-muted);
 }
 
+.workload-project {
+  display: grid;
+  gap: 12px;
+  padding: 14px;
+  border-radius: 18px;
+  border: 1px solid var(--border-soft);
+  background: var(--chip-bg);
+}
+
+.workload-project__header {
+  display: grid;
+  gap: 10px;
+}
+
+.workload-project__copy {
+  display: grid;
+  gap: 4px;
+}
+
+.workload-project__copy p {
+  color: var(--text-muted-soft);
+  font-size: 0.78rem;
+}
+
+.workload-project__metrics {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
 .button:hover,
 .pill-button:hover,
 .drawer-link:hover,
