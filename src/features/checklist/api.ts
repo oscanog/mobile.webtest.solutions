@@ -103,6 +103,7 @@ export interface ChecklistItemUpdatePayload {
   priority?: string
   required_role?: string
   assigned_to_user_id?: number
+  status?: string
 }
 
 export function fetchChecklistBatches(

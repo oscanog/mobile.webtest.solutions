@@ -21,8 +21,16 @@ const CHECKLIST_REQUIRED_ROLE_OPTIONS = [
   'Project Manager',
   'Senior Developer',
   'Junior Developer',
+  'Junior Developer',
   'member',
   'owner',
+]
+const CHECKLIST_STATUS_OPTIONS = [
+  'open',
+  'in_progress',
+  'passed',
+  'failed',
+  'blocked',
 ]
 
 interface ItemDraftState {
@@ -58,7 +66,9 @@ export function ChecklistItemDetailPage() {
   const [error, setError] = useState('')
   const [isSavingAssignment, setIsSavingAssignment] = useState(false)
   const [isSavingEdit, setIsSavingEdit] = useState(false)
+  const [isSavingStatus, setIsSavingStatus] = useState(false)
   const [isDeleting, setIsDeleting] = useState(false)
+  const [statusDraft, setStatusDraft] = useState('open')
 
   const numericItemId = Number(itemId)
   const canManageItem = canManageChecklist(session)
@@ -73,6 +83,7 @@ export function ChecklistItemDetailPage() {
     setData(result)
     setDraft(buildDraft(result))
     setAssignmentUserId(`${result.item.assigned_to_user_id ?? 0}`)
+    setStatusDraft(result.item.status)
   }, [activeOrgId, numericItemId, session?.accessToken])
 
   useEffect(() => {
@@ -156,6 +167,32 @@ export function ChecklistItemDetailPage() {
     }
   }
 
+  const handleStatusSave = async () => {
+    if (!session?.accessToken || !activeOrgId || !data) {
+      return
+    }
+
+    if (statusDraft === data.item.status) {
+       return
+    }
+
+    setIsSavingStatus(true)
+    setError('')
+    setMessage('')
+
+    try {
+      await updateChecklistItem(session.accessToken, activeOrgId, data.item.id, {
+        status: statusDraft,
+      })
+      await load()
+      setMessage('Status updated.')
+    } catch (saveError) {
+      setError(getErrorMessage(saveError, 'Unable to update status.'))
+    } finally {
+      setIsSavingStatus(false)
+    }
+  }
+
   const handleDelete = async () => {
     if (!session?.accessToken || !activeOrgId || !data) {
       return
@@ -211,6 +248,70 @@ export function ChecklistItemDetailPage() {
             <p className="body-copy">{data.item.description || 'No description added yet.'}</p>
           </SectionCard>
 
+          <SectionCard title="Workflow" subtitle="Update item status">
+            <div className="action-row">
+              <select
+                className="select-inline"
+                value={statusDraft}
+                onChange={(e) => setStatusDraft(e.target.value)}
+                disabled={isSavingStatus}
+              >
+                {CHECKLIST_STATUS_OPTIONS.map((status) => (
+                  <option key={status} value={status}>
+                    {status.replace('_', ' ').replace(/\b\w/g, c => c.toUpperCase())}
+                  </option>
+                ))}
+              </select>
+              <button
+                type="button"
+                className="button button--primary"
+                onClick={() => void handleStatusSave()}
+                disabled={isSavingStatus || statusDraft === data.item.status}
+              >
+                {isSavingStatus ? 'Updating...' : 'Update Status'}
+              </button>
+            </div>
+            {data.item.issue_id ? (
+              <p className="checklist-detail-note" style={{marginTop: '10px'}}>
+                Linked issue #{data.item.issue_id} exists.
+                <Link className="inline-link" to={`/app/reports/${data.item.issue_id}`} style={{marginLeft: '10px'}}>
+                  Open linked issue
+                </Link>
+              </p>
+            ) : null}
+          </SectionCard>
+
+          <SectionCard title="Attachments" subtitle={`${data.attachments.length} file${data.attachments.length === 1 ? '' : 's'}`}>
+            <div className="checklist-detail-actions" style={{ marginBottom: '16px' }}>
+              <input type="file" id="evidence-upload" style={{ display: 'none' }} onChange={() => { alert('Upload not implemented in this demo.')}} />
+              <button 
+                type="button" 
+                className="button"
+                onClick={() => document.getElementById('evidence-upload')?.click()}
+              >
+                Upload Evidence
+              </button>
+            </div>
+            {data.attachments.length ? (
+              <div className="checklist-attachment-list">
+                {data.attachments.map((attachment) => (
+                  <a
+                    key={attachment.id}
+                    className="checklist-attachment"
+                    href={attachment.file_path || '#'}
+                    target={attachment.file_path ? '_blank' : undefined}
+                    rel={attachment.file_path ? 'noreferrer' : undefined}
+                  >
+                    <strong>{attachment.original_name}</strong>
+                    <span>{attachment.uploaded_by_name || 'Unknown uploader'}</span>
+                  </a>
+                ))}
+              </div>
+            ) : (
+              <p className="body-copy">No attachments uploaded for this item.</p>
+            )}
+          </SectionCard>
+
           <SectionCard title="History">
             <div className="detail-pairs">
               <DetailPair label="Created By" value={data.item.created_by_name} />
@@ -232,33 +333,7 @@ export function ChecklistItemDetailPage() {
               ) : (
                 <p className="body-copy">No tested page link was saved for this checklist batch yet.</p>
               )}
-              {data.item.issue_id ? (
-                <Link className="inline-link" to={`/app/reports/${data.item.issue_id}`}>
-                  Open linked issue
-                </Link>
-              ) : null}
             </div>
-          </SectionCard>
-
-          <SectionCard title="Attachments" subtitle={`${data.attachments.length} file${data.attachments.length === 1 ? '' : 's'}`}>
-            {data.attachments.length ? (
-              <div className="checklist-attachment-list">
-                {data.attachments.map((attachment) => (
-                  <a
-                    key={attachment.id}
-                    className="checklist-attachment"
-                    href={attachment.file_path || '#'}
-                    target={attachment.file_path ? '_blank' : undefined}
-                    rel={attachment.file_path ? 'noreferrer' : undefined}
-                  >
-                    <strong>{attachment.original_name}</strong>
-                    <span>{attachment.uploaded_by_name || 'Unknown uploader'}</span>
-                  </a>
-                ))}
-              </div>
-            ) : (
-              <p className="body-copy">No attachments uploaded for this item.</p>
-            )}
           </SectionCard>
 
           {canManageItem ? (
@@ -373,6 +448,44 @@ export function ChecklistItemDetailPage() {
               </SectionCard>
             </>
           ) : null}
+
+          <div
+            className="checklist-mobile-actions"
+            style={{
+              position: 'fixed',
+              bottom: '80px',
+              left: 0,
+              right: 0,
+              padding: '12px 16px',
+              background: 'var(--surface-card)',
+              borderTop: '1px solid var(--border-soft)',
+              display: 'flex',
+              gap: '12px',
+              zIndex: 10,
+              boxShadow: '0 -4px 12px rgba(0,0,0,0.05)',
+            }}
+          >
+            <button
+              type="button"
+              className="button button--primary"
+              style={{ flex: 1 }}
+              onClick={() => {
+                const el = document.querySelector('select.select-inline') as HTMLSelectElement | null;
+                el?.focus();
+                el?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+              }}
+            >
+              Update Status
+            </button>
+            <button
+              type="button"
+              className="button"
+              style={{ flex: 1, backgroundColor: 'var(--surface-secondary)' }}
+              onClick={() => document.getElementById('evidence-upload')?.click()}
+            >
+              Upload Evidence
+            </button>
+          </div>
         </>
       ) : null}
     </div>
