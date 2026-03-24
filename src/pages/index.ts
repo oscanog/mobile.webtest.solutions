@@ -9,6 +9,7 @@ export {
 export {
   AIChatPage,
   ChecklistBatchDetailPage,
+  ChecklistItemDetailPage,
   ChecklistPage,
   DashboardPage,
   DiscordLinksPage,

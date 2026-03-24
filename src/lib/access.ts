@@ -12,6 +12,7 @@ export type AppRouteKey =
   | 'openclaw'
   | 'manage-users'
   | 'checklist'
+  | 'checklist-item'
   | 'discord-links'
   | 'ai-chat'
   | 'settings'
@@ -74,6 +75,7 @@ export const appRoutes: AppRouteDefinition[] = [
   { key: 'reports', path: '/app/reports', title: 'Issues', subtitle: 'Workflow queue', navKey: 'reports', requiresAuth: true, requiresOrg: true },
   { key: 'profile', path: '/app/profile', title: 'Profile', subtitle: 'Account center', navKey: 'profile', requiresAuth: true },
   { key: 'notifications', path: '/app/notifications', title: 'Notifications', subtitle: 'In-app inbox', navKey: 'utility', requiresAuth: true },
+  { key: 'checklist-item', path: '/app/checklist/items', title: 'Checklist Item', subtitle: 'Item detail', navKey: 'utility', requiresAuth: true, requiresOrg: true },
   {
     key: 'super-admin',
     path: '/app/super-admin',
@@ -161,6 +163,10 @@ export function canManageChecklist(session: AuthSession | null): boolean {
   return canManageProjects(session)
 }
 
+export function canAccessChecklistItem(session: AuthSession | null): boolean {
+  return Boolean(getActiveMembership(session))
+}
+
 export function canAccessAiChat(session: AuthSession | null): boolean {
   const membership = getActiveMembership(session)
   if (!membership) {
@@ -194,6 +200,9 @@ export function canViewRoute(session: AuthSession | null, routeKey: AppRouteKey)
     return false
   }
   if (route.key === 'checklist' && !canManageChecklist(session)) {
+    return false
+  }
+  if (route.key === 'checklist-item' && !canAccessChecklistItem(session)) {
     return false
   }
   if (route.key === 'ai-chat' && !canAccessAiChat(session)) {
@@ -230,6 +239,9 @@ export function normalizeNotificationDestination(session: AuthSession | null, pa
   }
   if (path.startsWith('/app/reports')) {
     return canViewRoute(session, 'reports') ? '/app/reports' : getDefaultAppPath(session)
+  }
+  if (path.startsWith('/app/checklist/items')) {
+    return canViewRoute(session, 'checklist-item') ? path : getDefaultAppPath(session)
   }
   if (path.startsWith('/app/projects')) {
     return canViewRoute(session, 'projects') ? '/app/projects' : getDefaultAppPath(session)

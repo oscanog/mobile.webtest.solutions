@@ -9,6 +9,7 @@ import { ThemeProvider } from './theme-context'
 import {
   AIChatPage,
   ChecklistBatchDetailPage,
+  ChecklistItemDetailPage,
   ChecklistPage,
   DashboardPage,
   DiscordLinksPage,
@@ -100,6 +101,7 @@ function App() {
                   <Route path="super-admin" element={<GuardedAppRoute path="/app/super-admin"><SuperAdminPage /></GuardedAppRoute>} />
                   <Route path="openclaw" element={<GuardedAppRoute path="/app/openclaw"><OpenClawPage /></GuardedAppRoute>} />
                   <Route path="manage-users" element={<GuardedAppRoute path="/app/manage-users"><ManageUsersPage /></GuardedAppRoute>} />
+                  <Route path="checklist/items/:itemId" element={<GuardedAppRoute path="/app/checklist/items"><ChecklistItemDetailPage /></GuardedAppRoute>} />
                   <Route path="checklist" element={<GuardedAppRoute path="/app/checklist"><ChecklistPage /></GuardedAppRoute>} />
                   <Route path="checklist/batches/:batchId" element={<GuardedAppRoute path="/app/checklist"><ChecklistBatchDetailPage /></GuardedAppRoute>} />
                   <Route path="discord-links" element={<GuardedAppRoute path="/app/discord-links"><DiscordLinksPage /></GuardedAppRoute>} />

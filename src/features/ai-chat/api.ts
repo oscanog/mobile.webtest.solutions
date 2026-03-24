@@ -35,6 +35,7 @@ export interface AIGeneratedChecklistItem {
   batch_title: string
   module_name: string
   submodule_name: string
+  page_url?: string
   sequence_no: number
   title: string
   description: string
@@ -67,6 +68,7 @@ export interface AIChatDraftContext {
   batch_title: string
   module_name: string
   submodule_name: string
+  page_url: string
   is_ready: boolean
   is_locked: boolean
 }
@@ -102,6 +104,7 @@ export interface DraftContextPayload {
   batch_title?: string
   module_name?: string
   submodule_name?: string
+  page_url?: string
 }
 
 interface JsonEnvelope<T> {

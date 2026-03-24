@@ -122,13 +122,17 @@ export function ChecklistBatchDetailPage() {
                   detail={`${item.required_role} • ${item.status}`}
                   meta={item.assigned_to_name || 'Unassigned'}
                   action={
-                    item.issue_id ? (
-                      <Link className="inline-link" to={`/app/reports/${item.issue_id}`}>
-                        Linked Issue
-                      </Link>
-                    ) : (
+                    <div className="list-row__actions">
                       <span className="pill">{item.priority}</span>
-                    )
+                      {item.issue_id ? (
+                        <Link className="inline-link" to={`/app/reports/${item.issue_id}`}>
+                          Linked Issue
+                        </Link>
+                      ) : null}
+                      <Link className="inline-link" to={`/app/checklist/items/${item.id}`}>
+                        Open
+                      </Link>
+                    </div>
                   }
                 />
               ))}

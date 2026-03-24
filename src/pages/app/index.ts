@@ -9,6 +9,7 @@ export {
   SuperAdminPage,
 } from './core'
 export { ChecklistBatchDetailPage, ChecklistPage } from './ChecklistPage'
+export { ChecklistItemDetailPage } from './ChecklistItemDetailPage'
 export { AIChatPage } from './AIChatPage'
 export { ManageUsersPage } from './ManageUsersPage'
 export { ProjectsPage } from './ProjectsPage'

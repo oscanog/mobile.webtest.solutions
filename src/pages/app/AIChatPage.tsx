@@ -32,6 +32,7 @@ type DraftFormState = {
   batchTitle: string
   moduleName: string
   submoduleName: string
+  pageUrl: string
 }
 
 const emptyDraftForm: DraftFormState = {
@@ -41,6 +42,16 @@ const emptyDraftForm: DraftFormState = {
   batchTitle: '',
   moduleName: '',
   submoduleName: '',
+  pageUrl: '',
+}
+
+function isValidPageUrl(value: string) {
+  try {
+    const parsed = new URL(value)
+    return parsed.protocol === 'http:' || parsed.protocol === 'https:'
+  } catch {
+    return false
+  }
 }
 
 function formatFileSize(size: number) {
@@ -65,6 +76,7 @@ function draftContextToForm(context?: AIChatDraftContext | null): DraftFormState
     batchTitle: context.batch_title ?? '',
     moduleName: context.module_name ?? '',
     submoduleName: context.submodule_name ?? '',
+    pageUrl: context.page_url ?? '',
   }
 }
 
@@ -79,7 +91,8 @@ function formMatchesContext(form: DraftFormState, context?: AIChatDraftContext |
     form.existingBatchId === (context.existing_batch_id ?? 0) &&
     form.batchTitle.trim() === (context.batch_title ?? '').trim() &&
     form.moduleName.trim() === (context.module_name ?? '').trim() &&
-    form.submoduleName.trim() === (context.submodule_name ?? '').trim()
+    form.submoduleName.trim() === (context.submodule_name ?? '').trim() &&
+    form.pageUrl.trim() === (context.page_url ?? '').trim()
   )
 }
 
@@ -113,6 +126,9 @@ function buildDraftPayload(form: DraftFormState): DraftContextPayload {
   if (!form.batchTitle.trim() || !form.moduleName.trim()) {
     throw new Error('Batch title and module name are required for a new checklist batch.')
   }
+  if (!isValidPageUrl(form.pageUrl.trim())) {
+    throw new Error('Link is required and must be a valid http:// or https:// URL.')
+  }
 
   return {
     project_id: form.projectId,
@@ -120,6 +136,7 @@ function buildDraftPayload(form: DraftFormState): DraftContextPayload {
     batch_title: form.batchTitle.trim(),
     module_name: form.moduleName.trim(),
     submodule_name: form.submoduleName.trim(),
+    page_url: form.pageUrl.trim(),
   }
 }
 
@@ -442,6 +459,11 @@ export function AIChatPage() {
   }
 
   const projectOptions = useMemo(() => projects, [projects])
+  const selectedExistingBatch = useMemo(
+    () => availableBatches.find((batch) => batch.id === draftForm.existingBatchId) ?? null,
+    [availableBatches, draftForm.existingBatchId],
+  )
+  const existingBatchPageUrl = selectedExistingBatch?.page_url ?? activeThread?.draft_context.page_url ?? ''
   const activeTargetLabel = formatThreadContextLabel(activeThread?.draft_context)
   const contextNeedsSave = Boolean(activeThreadId) && !contextSaved
 
@@ -483,6 +505,7 @@ export function AIChatPage() {
                     ...current,
                     projectId: Number(event.target.value),
                     existingBatchId: 0,
+                    pageUrl: current.targetMode === 'existing' ? '' : current.pageUrl,
                   }))
                 }
                 disabled={pending || isContextLocked}
@@ -502,6 +525,7 @@ export function AIChatPage() {
                     ...current,
                     targetMode: event.target.value === 'existing' ? 'existing' : 'new',
                     existingBatchId: 0,
+                    pageUrl: event.target.value === 'existing' ? '' : current.pageUrl,
                   }))
                 }
                 disabled={pending || isContextLocked || draftForm.projectId <= 0}
@@ -510,6 +534,7 @@ export function AIChatPage() {
                 <option value="existing">Existing batch</option>
               </select>
               {draftForm.targetMode === 'existing' ? (
+                <>
                 <select
                   className="input-inline select-inline"
                   value={draftForm.existingBatchId}
@@ -517,6 +542,8 @@ export function AIChatPage() {
                     setDraftForm((current) => ({
                       ...current,
                       existingBatchId: Number(event.target.value),
+                      pageUrl:
+                        availableBatches.find((batch) => batch.id === Number(event.target.value))?.page_url ?? '',
                     }))
                   }
                   disabled={pending || isContextLocked || draftForm.projectId <= 0 || loadingBatches}
@@ -528,6 +555,21 @@ export function AIChatPage() {
                     </option>
                   ))}
                 </select>
+                <input
+                  className="input-inline"
+                  value={existingBatchPageUrl}
+                  placeholder="No link saved for this batch"
+                  disabled
+                  readOnly
+                />
+                {existingBatchPageUrl ? (
+                  <a className="inline-link" href={existingBatchPageUrl} target="_blank" rel="noreferrer noopener">
+                    Open saved page link
+                  </a>
+                ) : (
+                  <p className="body-copy">This existing batch does not have a saved page link yet.</p>
+                )}
+                </>
               ) : (
                 <>
                   <input
@@ -550,6 +592,14 @@ export function AIChatPage() {
                     onChange={(event) => setDraftForm((current) => ({ ...current, submoduleName: event.target.value }))}
                     placeholder="Submodule name (optional)"
                     disabled={pending || isContextLocked}
+                  />
+                  <input
+                    className="input-inline"
+                    value={draftForm.pageUrl}
+                    onChange={(event) => setDraftForm((current) => ({ ...current, pageUrl: event.target.value }))}
+                    placeholder="Website page link (https://...)"
+                    disabled={pending || isContextLocked}
+                    inputMode="url"
                   />
                 </>
               )}

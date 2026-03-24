@@ -15,6 +15,7 @@ export interface ChecklistBatch {
   updated_by: number | null
   assigned_qa_lead_id: number | null
   notes: string | null
+  page_url: string | null
   created_at: string
   updated_at: string | null
   project_name: string
@@ -54,6 +55,10 @@ export interface ChecklistItem {
   assigned_to_name: string | null
   created_by_name: string
   updated_by_name: string | null
+  batch_title?: string
+  batch_status?: string
+  batch_page_url?: string | null
+  project_name?: string
 }
 
 export interface ChecklistBatchesResponse {
@@ -63,11 +68,38 @@ export interface ChecklistBatchesResponse {
 export interface ChecklistBatchDetailResponse {
   batch: ChecklistBatch
   items: ChecklistItem[]
-  attachments: Array<{
-    id: number
-    original_name: string
-    file_path: string
-  }>
+  attachments: ChecklistAttachment[]
+}
+
+export interface ChecklistAttachment {
+  id: number
+  original_name: string
+  file_path: string
+  uploaded_by_name?: string | null
+  created_at?: string
+}
+
+export interface ChecklistAssigneeOption {
+  user_id: number
+  username: string
+  role: string
+}
+
+export interface ChecklistItemDetailResponse {
+  item: ChecklistItem
+  attachments: ChecklistAttachment[]
+  assignable_testers?: ChecklistAssigneeOption[]
+}
+
+export interface ChecklistItemUpdatePayload {
+  sequence_no?: number
+  title?: string
+  module_name?: string
+  submodule_name?: string
+  description?: string
+  priority?: string
+  required_role?: string
+  assigned_to_user_id?: number
 }
 
 export function fetchChecklistBatches(
@@ -92,4 +124,30 @@ export function fetchChecklistBatches(
 
 export function fetchChecklistBatch(accessToken: string, orgId: number, batchId: number) {
   return requestJson<ChecklistBatchDetailResponse>(withOrgQuery(`/checklist/batches/${batchId}`, orgId), { method: 'GET' }, accessToken)
+}
+
+export function fetchChecklistItem(accessToken: string, orgId: number, itemId: number) {
+  return requestJson<ChecklistItemDetailResponse>(withOrgQuery(`/checklist/items/${itemId}`, orgId), { method: 'GET' }, accessToken)
+}
+
+export function updateChecklistItem(accessToken: string, orgId: number, itemId: number, payload: ChecklistItemUpdatePayload) {
+  return requestJson<{ item: ChecklistItem }>(
+    withOrgQuery(`/checklist/items/${itemId}`, orgId),
+    {
+      method: 'PATCH',
+      body: JSON.stringify(payload),
+    },
+    accessToken,
+  )
+}
+
+export function deleteChecklistItem(accessToken: string, orgId: number, itemId: number) {
+  return requestJson<{ deleted: boolean; id: number }>(
+    withOrgQuery(`/checklist/items/${itemId}`, orgId),
+    {
+      method: 'DELETE',
+      body: JSON.stringify({}),
+    },
+    accessToken,
+  )
 }
