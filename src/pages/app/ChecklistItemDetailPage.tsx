@@ -452,9 +452,12 @@ export function ChecklistItemDetailPage() {
           <div
             className="checklist-mobile-actions"
             style={{
-              position: 'sticky',
-              bottom: '16px',
-              marginTop: '24px',
+              position: 'fixed',
+              bottom: '80px',
+              left: '50%',
+              transform: 'translateX(-50%)',
+              width: 'calc(100% - 32px)',
+              maxWidth: '448px',
               padding: '12px 16px',
               background: 'var(--surface-card)',
               border: '1px solid var(--border-soft)',
