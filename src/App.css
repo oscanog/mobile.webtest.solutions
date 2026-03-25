@@ -1381,9 +1381,10 @@
   width: min(82%, 320px);
   padding: 18px;
   display: grid;
+  grid-template-rows: auto auto minmax(0, 1fr);
   gap: 12px;
-  align-content: start;
-  grid-auto-rows: max-content;
+  min-height: 0;
+  overflow: hidden;
   background: var(--drawer-bg);
   color: var(--drawer-text);
   transform: translateX(-102%);
@@ -1402,6 +1403,10 @@
 .drawer-section {
   display: grid;
   gap: 10px;
+  min-height: 0;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  padding-right: 4px;
 }
 
 .drawer-usercard {
@@ -2507,10 +2512,79 @@
   gap: 10px;
 }
 
+.manage-users-org-filter,
 .manage-users-toolbar,
 .manage-users-toolbar__field {
   display: grid;
   gap: 8px;
+  min-width: 0;
+}
+
+.manage-users-org-filter__header {
+  display: grid;
+  gap: 4px;
+}
+
+.manage-users-org-filter__header span {
+  font-size: 0.68rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--text-muted);
+}
+
+.manage-users-org-filter__scroller {
+  width: 100%;
+  max-width: 100%;
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.manage-users-org-filter__scroll {
+  flex: 1 1 auto;
+  width: 100%;
+  max-width: 100%;
+  min-width: 0;
+  overflow-x: auto;
+  overflow-y: hidden;
+  overscroll-behavior-x: contain;
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+}
+
+.manage-users-org-filter__scroll::-webkit-scrollbar {
+  display: none;
+}
+
+.manage-users-org-filter__chips {
+  display: inline-flex;
+  gap: 10px;
+  flex-wrap: nowrap;
+  min-width: max-content;
+  padding-bottom: 2px;
+}
+
+.manage-users-org-filter__chip {
+  flex: 0 0 auto;
+  scroll-snap-align: start;
+  white-space: nowrap;
+  max-width: none;
+}
+
+.manage-users-org-filter__nav {
+  flex: 0 0 34px;
+  width: 34px;
+  height: 34px;
+  border: 0;
+  border-radius: 999px;
+  display: grid;
+  place-items: center;
+  color: var(--text-primary);
+  background: color-mix(in srgb, var(--surface-card) 82%, transparent);
+  box-shadow: var(--shadow-soft);
+  cursor: pointer;
+  backdrop-filter: blur(10px);
 }
 
 .manage-users-toolbar__grid {
