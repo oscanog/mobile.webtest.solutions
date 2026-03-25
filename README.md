@@ -1,6 +1,6 @@
 # BugCatcher Mobile Web
 
-Static React + Vite prototype for the `super_admin` mobile experience.
+React + Vite mobile web client for the BugCatcher `super_admin` experience.
 
 ## Product Goal
 
@@ -11,7 +11,7 @@ Build a mobile-first command UI for daily BugCatcher operations with:
 - legacy BugCatcher naming parity
 - bottom navigation + side drawer model
 
-This phase stays static only: no backend calls, no real auth wiring, and no form submission logic.
+This mobile app now uses the live BugCatcher API for authenticated issue, checklist, and AI chat flows, including multipart evidence uploads on supported screens.
 
 ## Mobile-First Rule
 
@@ -118,6 +118,13 @@ bun run build
 ## Deployment
 
 GitHub Actions deploys this app to the GCloud VM on every push to `main`.
+
+## Attachment Flows
+
+- Issue creation supports optional image evidence uploads.
+- Report detail renders uploaded issue evidence.
+- Checklist item detail supports live attachment uploads through the backend checklist API.
+- AI chat screenshot uploads still go through the backend and do not require frontend Cloudinary secrets.
 
 Live hostnames:
 

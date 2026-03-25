@@ -2708,6 +2708,7 @@
 }
 
 .ai-chat-sidebar__meta,
+.file-pill-list,
 .ai-chat-selected-files,
 .ai-chat-attachment-list {
   display: flex;

@@ -168,3 +168,20 @@ export function deleteChecklistItem(accessToken: string, orgId: number, itemId: 
     accessToken,
   )
 }
+
+export function uploadChecklistItemAttachments(accessToken: string, orgId: number, itemId: number, attachments: File[]) {
+  const formData = new FormData()
+  formData.set('item_id', `${itemId}`)
+  attachments.forEach((file) => {
+    formData.append('attachments[]', file)
+  })
+
+  return requestJson<{ uploaded_count: number; failed: Array<{ name: string; error: string | number }>; attachments: ChecklistAttachment[] }>(
+    withOrgQuery('/checklist/item_attachments', orgId),
+    {
+      method: 'POST',
+      body: formData,
+    },
+    accessToken,
+  )
+}

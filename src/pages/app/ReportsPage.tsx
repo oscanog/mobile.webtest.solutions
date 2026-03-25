@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState, type FormEvent } from 'react'
+import { useCallback, useEffect, useRef, useState, type ChangeEvent, type FormEvent } from 'react'
 import { Link, useNavigate, useParams } from 'react-router-dom'
 import type { OrgRole } from '../../auth-context'
 import { useAuth } from '../../auth-context'
@@ -9,12 +9,28 @@ import { createIssue, deleteIssue, fetchIssue, fetchIssues, performIssueAction, 
 import { fetchOrganizationMembers, type OrganizationMember } from '../../features/organizations/api'
 import { EmptySection, FormMessage, LoadingSection, formatDateTime } from '../shared'
 
+function formatFileSize(size: number) {
+  if (size < 1024) {
+    return `${size} B`
+  }
+  if (size < 1024 * 1024) {
+    return `${(size / 1024).toFixed(1)} KB`
+  }
+  return `${(size / (1024 * 1024)).toFixed(1)} MB`
+}
+
+function isImageAttachment(attachment: { mime_type: string }) {
+  return attachment.mime_type.startsWith('image/')
+}
+
 export function ReportsPage() {
   const { activeOrgId, session } = useAuth()
+  const fileInputRef = useRef<HTMLInputElement | null>(null)
   const [status, setStatus] = useState<'open' | 'closed'>('open')
   const [data, setData] = useState<IssuesResponse | null>(null)
   const [title, setTitle] = useState('')
   const [description, setDescription] = useState('')
+  const [attachments, setAttachments] = useState<File[]>([])
   const [message, setMessage] = useState('')
   const [error, setError] = useState('')
   const [pending, setPending] = useState(false)
@@ -37,6 +53,10 @@ export function ReportsPage() {
     void load(status)
   }, [load, status])
 
+  const handleAttachmentChange = (event: ChangeEvent<HTMLInputElement>) => {
+    setAttachments(Array.from(event.target.files ?? []))
+  }
+
   const handleCreate = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault()
     if (!session?.accessToken || !activeOrgId || !title.trim()) {
@@ -52,9 +72,13 @@ export function ReportsPage() {
         title: title.trim(),
         description: description.trim(),
         labels: [1],
-      })
+      }, attachments)
       setTitle('')
       setDescription('')
+      setAttachments([])
+      if (fileInputRef.current) {
+        fileInputRef.current.value = ''
+      }
       setStatus('open')
       setMessage('Issue created.')
       await load('open')
@@ -74,6 +98,27 @@ export function ReportsPage() {
         <form className="auth-stack" onSubmit={handleCreate}>
           <input className="input-inline" value={title} onChange={(event) => setTitle(event.target.value)} placeholder="Issue title" />
           <textarea className="input-inline textarea-inline" value={description} onChange={(event) => setDescription(event.target.value)} placeholder="Issue description" />
+          <div className="action-row">
+            <button type="button" className="button button--ghost" onClick={() => fileInputRef.current?.click()} disabled={pending}>
+              Add Evidence
+            </button>
+            <span className="body-copy">{attachments.length ? `${attachments.length} file${attachments.length === 1 ? '' : 's'} selected` : 'Images are optional.'}</span>
+          </div>
+          {attachments.length ? (
+            <div className="file-pill-list">
+              {attachments.map((file) => (
+                <span key={`${file.name}-${file.size}`} className="pill">{file.name} • {formatFileSize(file.size)}</span>
+              ))}
+            </div>
+          ) : null}
+          <input
+            ref={fileInputRef}
+            type="file"
+            accept="image/png,image/jpeg,image/webp,image/gif"
+            multiple
+            hidden
+            onChange={handleAttachmentChange}
+          />
           <button type="submit" className="button button--primary" disabled={pending || !title.trim()}>
             {pending ? 'Creating...' : 'Create'}
           </button>
@@ -277,6 +322,47 @@ export function ReportDetailPage() {
               <DetailPair label="Created" value={formatDateTime(data.issue.created_at)} />
             </div>
             <p className="body-copy">{data.issue.description || 'No issue description provided.'}</p>
+          </SectionCard>
+
+          <SectionCard title="Evidence" subtitle={`${data.issue.attachments.length} file${data.issue.attachments.length === 1 ? '' : 's'}`}>
+            {data.issue.attachments.length ? (
+              <>
+                {data.issue.attachments.filter(isImageAttachment).length ? (
+                  <div className="checklist-batch-gallery">
+                    {data.issue.attachments.filter(isImageAttachment).map((attachment) => (
+                      <a
+                        key={attachment.id}
+                        className="checklist-batch-gallery__item"
+                        href={attachment.file_path || '#'}
+                        target={attachment.file_path ? '_blank' : undefined}
+                        rel={attachment.file_path ? 'noreferrer noopener' : undefined}
+                      >
+                        <img src={attachment.file_path} alt={attachment.original_name} loading="lazy" />
+                        <span>{attachment.original_name}</span>
+                      </a>
+                    ))}
+                  </div>
+                ) : null}
+                {data.issue.attachments.filter((attachment) => !isImageAttachment(attachment)).length ? (
+                  <div className="checklist-attachment-list">
+                    {data.issue.attachments.filter((attachment) => !isImageAttachment(attachment)).map((attachment) => (
+                      <a
+                        key={attachment.id}
+                        className="checklist-attachment"
+                        href={attachment.file_path || '#'}
+                        target={attachment.file_path ? '_blank' : undefined}
+                        rel={attachment.file_path ? 'noreferrer noopener' : undefined}
+                      >
+                        <strong>{attachment.original_name}</strong>
+                        <span>{attachment.mime_type} • {formatFileSize(attachment.file_size)}</span>
+                      </a>
+                    ))}
+                  </div>
+                ) : null}
+              </>
+            ) : (
+              <p className="body-copy">No evidence uploaded for this issue yet.</p>
+            )}
           </SectionCard>
 
           <SectionCard title="Workflow Actions">

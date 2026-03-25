@@ -1,10 +1,11 @@
-import { useCallback, useEffect, useState, type FormEvent } from 'react'
+import { useCallback, useEffect, useRef, useState, type ChangeEvent, type FormEvent } from 'react'
 import { Link, useNavigate, useParams } from 'react-router-dom'
 import { useAuth } from '../../auth-context'
 import { DetailPair, SectionCard } from '../../components/ui'
 import {
   deleteChecklistItem,
   fetchChecklistItem,
+  uploadChecklistItemAttachments,
   updateChecklistItem,
   updateChecklistItemStatus,
   type ChecklistAssigneeOption,
@@ -44,6 +45,16 @@ interface ItemDraftState {
   requiredRole: string
 }
 
+function formatFileSize(size: number) {
+  if (size < 1024) {
+    return `${size} B`
+  }
+  if (size < 1024 * 1024) {
+    return `${(size / 1024).toFixed(1)} KB`
+  }
+  return `${(size / (1024 * 1024)).toFixed(1)} MB`
+}
+
 function buildDraft(data: ChecklistItemDetailResponse): ItemDraftState {
   return {
     sequenceNo: `${data.item.sequence_no}`,
@@ -60,6 +71,7 @@ export function ChecklistItemDetailPage() {
   const { itemId } = useParams()
   const navigate = useNavigate()
   const { activeOrgId, session } = useAuth()
+  const fileInputRef = useRef<HTMLInputElement | null>(null)
   const [data, setData] = useState<ChecklistItemDetailResponse | null>(null)
   const [draft, setDraft] = useState<ItemDraftState | null>(null)
   const [assignmentUserId, setAssignmentUserId] = useState('0')
@@ -68,6 +80,7 @@ export function ChecklistItemDetailPage() {
   const [isSavingAssignment, setIsSavingAssignment] = useState(false)
   const [isSavingEdit, setIsSavingEdit] = useState(false)
   const [isSavingStatus, setIsSavingStatus] = useState(false)
+  const [isUploadingAttachments, setIsUploadingAttachments] = useState(false)
   const [isDeleting, setIsDeleting] = useState(false)
   const [statusDraft, setStatusDraft] = useState('open')
 
@@ -215,6 +228,30 @@ export function ChecklistItemDetailPage() {
     }
   }
 
+  const handleAttachmentUpload = async (event: ChangeEvent<HTMLInputElement>) => {
+    const files = Array.from(event.target.files ?? [])
+    if (!session?.accessToken || !activeOrgId || !numericItemId || files.length === 0) {
+      return
+    }
+
+    setIsUploadingAttachments(true)
+    setError('')
+    setMessage('')
+    try {
+      const result = await uploadChecklistItemAttachments(session.accessToken, activeOrgId, numericItemId, files)
+      setData((current) => current ? { ...current, attachments: result.attachments } : current)
+      setMessage(result.uploaded_count === 1 ? '1 attachment uploaded.' : `${result.uploaded_count} attachments uploaded.`)
+      await load()
+    } catch (uploadError) {
+      setError(getErrorMessage(uploadError, 'Unable to upload attachments.'))
+    } finally {
+      if (fileInputRef.current) {
+        fileInputRef.current.value = ''
+      }
+      setIsUploadingAttachments(false)
+    }
+  }
+
   return (
     <div className="page-stack">
       {message ? <FormMessage tone="success">{message}</FormMessage> : null}
@@ -282,13 +319,21 @@ export function ChecklistItemDetailPage() {
 
           <SectionCard title="Attachments" subtitle={`${data.attachments.length} file${data.attachments.length === 1 ? '' : 's'}`}>
             <div className="checklist-detail-actions" style={{ marginBottom: '16px' }}>
-              <input type="file" id="evidence-upload" style={{ display: 'none' }} onChange={() => { alert('Upload not implemented in this demo.')}} />
-              <button 
-                type="button" 
+              <input
+                ref={fileInputRef}
+                type="file"
+                style={{ display: 'none' }}
+                multiple
+                accept="image/*,video/mp4,video/webm,video/quicktime"
+                onChange={(event) => void handleAttachmentUpload(event)}
+              />
+              <button
+                type="button"
                 className="button"
-                onClick={() => document.getElementById('evidence-upload')?.click()}
+                onClick={() => fileInputRef.current?.click()}
+                disabled={isUploadingAttachments}
               >
-                Upload Evidence
+                {isUploadingAttachments ? 'Uploading...' : 'Upload Evidence'}
               </button>
             </div>
             {data.attachments.length ? (
@@ -302,7 +347,10 @@ export function ChecklistItemDetailPage() {
                     rel={attachment.file_path ? 'noreferrer' : undefined}
                   >
                     <strong>{attachment.original_name}</strong>
-                    <span>{attachment.uploaded_by_name || 'Unknown uploader'}</span>
+                    <span>
+                      {attachment.uploaded_by_name || 'Unknown uploader'}
+                      {attachment.file_size ? ` • ${formatFileSize(attachment.file_size)}` : ''}
+                    </span>
                   </a>
                 ))}
               </div>

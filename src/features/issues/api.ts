@@ -85,7 +85,32 @@ export function fetchIssue(accessToken: string, orgId: number, issueId: number) 
 export function createIssue(
   accessToken: string,
   payload: { org_id: number; title: string; description?: string; labels?: number[] },
+  images: File[] = [],
 ) {
+  if (images.length > 0) {
+    const formData = new FormData()
+    formData.set('org_id', `${payload.org_id}`)
+    formData.set('title', payload.title)
+    if (payload.description?.trim()) {
+      formData.set('description', payload.description.trim())
+    }
+    ;(payload.labels ?? []).forEach((labelId) => {
+      formData.append('labels[]', `${labelId}`)
+    })
+    images.forEach((file) => {
+      formData.append('images[]', file)
+    })
+
+    return requestJson<{ issue: IssueRecord }>(
+      '/issues',
+      {
+        method: 'POST',
+        body: formData,
+      },
+      accessToken,
+    )
+  }
+
   return requestJson<{ issue: IssueRecord }>(
     '/issues',
     {
