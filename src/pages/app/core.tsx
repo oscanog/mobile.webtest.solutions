@@ -1,15 +1,15 @@
-import { useCallback, useEffect, useMemo, useState, type CSSProperties, type FormEvent } from 'react'
+import { useCallback, useEffect, useState, type CSSProperties, type FormEvent } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { useAuth } from '../../auth-context'
-import { getSidebarItems } from '../../lib/access'
 import { getErrorMessage } from '../../lib/api'
-import { DetailPair, ListRow, SectionCard, StatCard, StatusTile } from '../../components/ui'
+import { AuthField, DetailPair, Icon, ListRow, SectionCard, StatCard, StatusTile } from '../../components/ui'
 import {
   fetchDashboardSummary,
   type DashboardQaLeadChecklistProject,
   type DashboardQaLeadChecklistRow,
   type DashboardSummaryResponse,
 } from '../../features/dashboard/api'
+import { changePassword, updateProfile } from '../../features/account/api'
 import {
   fetchAiAdminRuntime,
   saveAiAdminModel,
@@ -60,6 +60,12 @@ function DashboardChecklistWorkloadProject({ project }: { project: DashboardQaLe
       </div>
     </article>
   )
+}
+
+function formatProfileLabel(value: string): string {
+  return value
+    .replace(/_/g, ' ')
+    .replace(/\b\w/g, (match) => match.toUpperCase())
 }
 
 export function DashboardPage() {
@@ -404,59 +410,200 @@ export function OrganizationsPage() {
 }
 
 export function ProfilePage() {
-  const { activeMembership, memberships, session, user } = useAuth()
+  const { refreshSession, session, user } = useAuth()
+  const [profileUsername, setProfileUsername] = useState(user?.username ?? '')
+  const [profilePending, setProfilePending] = useState(false)
+  const [profileError, setProfileError] = useState('')
+  const [profileMessage, setProfileMessage] = useState('')
+  const [passwordForm, setPasswordForm] = useState({
+    currentPassword: '',
+    password: '',
+    confirmPassword: '',
+  })
+  const [passwordPending, setPasswordPending] = useState(false)
+  const [passwordError, setPasswordError] = useState('')
+  const [passwordMessage, setPasswordMessage] = useState('')
 
-  const quickActions = useMemo(
-    () =>
-      getSidebarItems(session)
-        .filter((item) => item.key !== 'logout' && item.key !== 'settings')
-        .slice(0, 3),
-    [session],
-  )
+  useEffect(() => {
+    setProfileUsername(user?.username ?? '')
+  }, [user?.username])
+
+  const handleProfileSubmit = async (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault()
+    if (!session?.accessToken) {
+      setProfileError('Authentication required.')
+      return
+    }
+
+    const nextUsername = profileUsername.trim()
+    if (!nextUsername) {
+      setProfileError('Username is required.')
+      return
+    }
+
+    setProfilePending(true)
+    setProfileError('')
+    setProfileMessage('')
+
+    try {
+      const result = await updateProfile(session.accessToken, { username: nextUsername })
+      await refreshSession()
+      setProfileMessage(result.message || 'Profile updated successfully.')
+    } catch (profileUpdateError) {
+      setProfileError(getErrorMessage(profileUpdateError, 'Unable to update profile.'))
+    } finally {
+      setProfilePending(false)
+    }
+  }
+
+  const handlePasswordSubmit = async (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault()
+    if (!session?.accessToken) {
+      setPasswordError('Authentication required.')
+      return
+    }
+
+    setPasswordPending(true)
+    setPasswordError('')
+    setPasswordMessage('')
+
+    try {
+      const result = await changePassword(session.accessToken, {
+        current_password: passwordForm.currentPassword,
+        password: passwordForm.password,
+        confirm_password: passwordForm.confirmPassword,
+      })
+      setPasswordForm({
+        currentPassword: '',
+        password: '',
+        confirmPassword: '',
+      })
+      setPasswordMessage(result.message || 'Password updated successfully.')
+    } catch (passwordUpdateError) {
+      setPasswordError(getErrorMessage(passwordUpdateError, 'Unable to change password.'))
+    } finally {
+      setPasswordPending(false)
+    }
+  }
+
+  const isProfileUnchanged = profileUsername.trim() === (user?.username ?? '').trim()
 
   return (
     <div className="page-stack">
-      <SectionCard title={user?.role === 'super_admin' ? 'Super Admin' : 'Profile'}>
+      <SectionCard title="Account Summary">
         <div className="profile-hero">
           <div className="profile-hero__avatar">{initialsFromUsername(user?.username ?? 'User')}</div>
           <div className="profile-hero__copy">
+            <span className="profile-hero__eyebrow">System Role</span>
             <strong>{user?.username ?? 'Unknown user'}</strong>
             <p>{user?.email ?? 'No email'}</p>
+            <span className="profile-hero__meta">{formatProfileLabel(user?.role ?? 'user')}</span>
           </div>
-          <span className="pill pill--success">Online</span>
+          <span className="profile-status-badge">Online</span>
         </div>
       </SectionCard>
 
-      <div className="stats-grid">
-        <StatCard stat={{ label: 'System', value: user?.role ?? 'user', note: 'role', tone: 'steel' }} />
-        <StatCard stat={{ label: 'Teams', value: `${memberships.length}`, note: 'memberships', tone: 'success' }} />
-        <StatCard stat={{ label: 'Org Role', value: activeMembership?.role ?? 'No org', note: activeMembership?.org_name ?? 'set org', tone: 'alert' }} />
-      </div>
+      <SectionCard title="Profile Settings" subtitle="Update the account name shown across BugCatcher.">
+        <div className="profile-form-card">
+          <p className="body-copy profile-settings-note">Change your username here. Email stays read-only so your login address remains stable.</p>
 
-      <SectionCard title="Quick Actions">
-        <div className="list-stack">
-          {quickActions.map((item) => (
-            <ListRow
-              key={item.key}
-              icon={item.icon}
-              title={item.label}
-              detail={item.to}
-              action={
-                <Link to={item.to} className="inline-link">
-                  Open
-                </Link>
-              }
+          <form className="auth-stack" onSubmit={handleProfileSubmit}>
+            {profileError ? <FormMessage tone="error">{profileError}</FormMessage> : null}
+            {profileMessage ? <FormMessage tone="success">{profileMessage}</FormMessage> : null}
+
+            <AuthField
+              label="Username"
+              placeholder="username"
+              icon="users"
+              name="username"
+              autoComplete="username"
+              value={profileUsername}
+              onChange={(event) => setProfileUsername(event.target.value)}
+              disabled={profilePending}
+              error={Boolean(profileError)}
             />
-          ))}
+
+            <label className="auth-field">
+              <span>Email</span>
+              <div className="auth-field__input profile-field--readonly">
+                <span className="auth-field__icon">
+                  <Icon name="mail" />
+                </span>
+                <input type="email" value={user?.email ?? ''} readOnly aria-readonly="true" />
+                <span className="pill">Read only</span>
+              </div>
+            </label>
+
+            <div className="auth-actions-row">
+              <button type="submit" className="button button--primary" disabled={profilePending || isProfileUnchanged || !profileUsername.trim()}>
+                {profilePending ? 'Saving...' : 'Save Profile'}
+              </button>
+            </div>
+          </form>
         </div>
       </SectionCard>
 
-      <SectionCard title="Session">
-        <div className="detail-pairs">
-          <DetailPair label="System Role" value={user?.role ?? 'user'} />
-          <DetailPair label="Org Role" value={activeMembership?.role ?? 'No active org'} />
-          <DetailPair label="Org" value={activeMembership?.org_name ?? 'No active org'} />
-          <DetailPair label="Device" value="Mobile Web" />
+      <SectionCard title="Change Password" subtitle="Use your current password to set a new one.">
+        <div className="profile-form-card">
+          <form className="auth-stack" onSubmit={handlePasswordSubmit}>
+            {passwordError ? <FormMessage tone="error">{passwordError}</FormMessage> : null}
+            {passwordMessage ? <FormMessage tone="success">{passwordMessage}</FormMessage> : null}
+
+            <AuthField
+              label="Current Password"
+              placeholder="Enter current password"
+              icon="lock"
+              type="password"
+              name="current_password"
+              autoComplete="current-password"
+              value={passwordForm.currentPassword}
+              onChange={(event) => setPasswordForm((current) => ({ ...current, currentPassword: event.target.value }))}
+              disabled={passwordPending}
+              error={Boolean(passwordError)}
+              allowVisibilityToggle
+            />
+            <AuthField
+              label="New Password"
+              placeholder="Create new password"
+              icon="lock"
+              type="password"
+              name="password"
+              autoComplete="new-password"
+              value={passwordForm.password}
+              onChange={(event) => setPasswordForm((current) => ({ ...current, password: event.target.value }))}
+              disabled={passwordPending}
+              error={Boolean(passwordError)}
+              allowVisibilityToggle
+            />
+            <AuthField
+              label="Confirm New Password"
+              placeholder="Repeat new password"
+              icon="lock"
+              type="password"
+              name="confirm_password"
+              autoComplete="new-password"
+              value={passwordForm.confirmPassword}
+              onChange={(event) => setPasswordForm((current) => ({ ...current, confirmPassword: event.target.value }))}
+              disabled={passwordPending}
+              error={Boolean(passwordError)}
+              allowVisibilityToggle
+            />
+
+            <div className="auth-actions-row">
+              <button
+                type="submit"
+                className="button button--primary"
+                disabled={
+                  passwordPending ||
+                  !passwordForm.currentPassword ||
+                  !passwordForm.password ||
+                  !passwordForm.confirmPassword
+                }
+              >
+                {passwordPending ? 'Updating...' : 'Change Password'}
+              </button>
+            </div>
+          </form>
         </div>
       </SectionCard>
     </div>

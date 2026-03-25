@@ -1680,29 +1680,103 @@
 .profile-hero {
   display: grid;
   grid-template-columns: auto 1fr auto;
-  gap: 12px;
+  gap: 14px;
   align-items: center;
 }
 
 .profile-hero__avatar {
-  width: 52px;
-  height: 52px;
-  border-radius: 18px;
+  width: 64px;
+  height: 64px;
+  border-radius: 22px;
   display: grid;
   place-items: center;
-  background: linear-gradient(180deg, #202933, #121920);
-  color: #f7f4ef;
+  background:
+    linear-gradient(145deg, color-mix(in srgb, var(--accent-steel) 72%, var(--surface-card)), color-mix(in srgb, var(--accent-success) 42%, var(--surface-card))),
+    var(--surface-card-muted);
+  border: 1px solid color-mix(in srgb, var(--accent-steel) 34%, var(--border-soft));
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.18),
+    0 12px 24px rgba(7, 12, 18, 0.12);
+  color: var(--text-inverse);
   font-family: 'Sora', sans-serif;
   font-weight: 700;
+  font-size: 1.15rem;
+  letter-spacing: 0.02em;
 }
 
 .profile-hero__copy {
   display: grid;
   gap: 4px;
+  min-width: 0;
+}
+
+.profile-hero__eyebrow {
+  font-size: 0.69rem;
+  font-weight: 800;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--text-muted);
 }
 
 .profile-hero__copy p {
   color: var(--text-muted);
+}
+
+.profile-hero__meta {
+  font-size: 0.9rem;
+  font-weight: 700;
+  color: var(--text-primary);
+}
+
+.profile-status-badge {
+  justify-self: end;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 42px;
+  padding: 0 16px;
+  border-radius: 999px;
+  border: 1px solid color-mix(in srgb, var(--accent-success) 34%, var(--border-soft));
+  background: linear-gradient(180deg, color-mix(in srgb, var(--accent-success) 24%, var(--surface-card)), color-mix(in srgb, var(--accent-success) 18%, var(--surface-card-muted)));
+  color: color-mix(in srgb, var(--text-primary) 78%, var(--accent-success));
+  font-weight: 800;
+  white-space: nowrap;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.16);
+}
+
+.site-shell[data-theme='dark'] .profile-hero__avatar {
+  background:
+    linear-gradient(145deg, rgba(73, 98, 124, 0.96), rgba(57, 179, 107, 0.7)),
+    var(--surface-card-muted);
+  border-color: rgba(255, 255, 255, 0.08);
+}
+
+.site-shell[data-theme='dark'] .profile-status-badge {
+  border-color: rgba(57, 179, 107, 0.42);
+  background: linear-gradient(180deg, rgba(57, 179, 107, 0.28), rgba(57, 179, 107, 0.18));
+  color: #def7e9;
+}
+
+.profile-form-card {
+  display: grid;
+  gap: 14px;
+}
+
+.profile-settings-note {
+  color: var(--text-muted-soft);
+}
+
+.profile-field--readonly {
+  gap: 10px;
+}
+
+.profile-field--readonly input[readonly] {
+  color: var(--text-muted);
+  cursor: default;
+}
+
+.profile-field--readonly .pill {
+  flex-shrink: 0;
 }
 
 .workload-project {
@@ -1782,6 +1856,12 @@
 
   .profile-hero {
     grid-template-columns: auto 1fr;
+  }
+
+  .profile-status-badge {
+    grid-column: 1 / -1;
+    justify-self: start;
+    margin-left: 78px;
   }
 
   .auth-screen,
