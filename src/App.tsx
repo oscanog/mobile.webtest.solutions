@@ -7,12 +7,12 @@ import { NotificationProvider } from './features/notifications/context'
 import { canViewRoute, findAppRoute } from './lib/access'
 import { ThemeProvider } from './theme-context'
 import {
+  AIAdminPage,
   AIChatPage,
   ChecklistBatchDetailPage,
   ChecklistItemDetailPage,
   ChecklistPage,
   DashboardPage,
-  DiscordLinksPage,
   ForgotPasswordPage,
   ForgotPasswordSuccessPage,
   ForgotPasswordVerifyPage,
@@ -20,7 +20,6 @@ import {
   LoginPage,
   ManageUsersPage,
   NotificationsPage,
-  OpenClawPage,
   OrganizationsPage,
   ProfilePage,
   ProjectDetailPage,
@@ -99,12 +98,12 @@ function App() {
                   <Route path="profile" element={<GuardedAppRoute path="/app/profile"><ProfilePage /></GuardedAppRoute>} />
                   <Route path="notifications" element={<GuardedAppRoute path="/app/notifications"><NotificationsPage /></GuardedAppRoute>} />
                   <Route path="super-admin" element={<GuardedAppRoute path="/app/super-admin"><SuperAdminPage /></GuardedAppRoute>} />
-                  <Route path="openclaw" element={<GuardedAppRoute path="/app/openclaw"><OpenClawPage /></GuardedAppRoute>} />
+                  <Route path="openclaw" element={<Navigate to="/app/ai-admin" replace />} />
+                  <Route path="ai-admin" element={<GuardedAppRoute path="/app/ai-admin"><AIAdminPage /></GuardedAppRoute>} />
                   <Route path="manage-users" element={<GuardedAppRoute path="/app/manage-users"><ManageUsersPage /></GuardedAppRoute>} />
                   <Route path="checklist/items/:itemId" element={<GuardedAppRoute path="/app/checklist/items"><ChecklistItemDetailPage /></GuardedAppRoute>} />
                   <Route path="checklist" element={<GuardedAppRoute path="/app/checklist"><ChecklistPage /></GuardedAppRoute>} />
                   <Route path="checklist/batches/:batchId" element={<GuardedAppRoute path="/app/checklist"><ChecklistBatchDetailPage /></GuardedAppRoute>} />
-                  <Route path="discord-links" element={<GuardedAppRoute path="/app/discord-links"><DiscordLinksPage /></GuardedAppRoute>} />
                   <Route path="ai-chat" element={<GuardedAppRoute path="/app/ai-chat"><AIChatPage /></GuardedAppRoute>} />
                   <Route path="settings" element={<GuardedAppRoute path="/app/settings"><SettingsPage /></GuardedAppRoute>} />
                 </Route>

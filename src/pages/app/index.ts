@@ -1,8 +1,7 @@
 export {
+  AIAdminPage,
   DashboardPage,
-  DiscordLinksPage,
   NotificationsPage,
-  OpenClawPage,
   OrganizationsPage,
   ProfilePage,
   SettingsPage,

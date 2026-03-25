@@ -66,13 +66,6 @@ export function Icon({ name }: { name: IconName }) {
         <path d="M4.5 12.5l1.5 1.5 2.5-3" />
       </>
     ),
-    discord: (
-      <>
-        <path d="M8 6.5c4.2-1 3.8-1 8 0 .7 1.1 1.4 2.5 2 4.5-.7 3-2.1 5.2-4.1 6.8L12 16.5l-1.9 1.3C8.1 16.2 6.7 14 6 11c.6-2 1.3-3.4 2-4.5Z" />
-        <circle cx="10" cy="11.5" r="1" fill="currentColor" stroke="none" />
-        <circle cx="14" cy="11.5" r="1" fill="currentColor" stroke="none" />
-      </>
-    ),
     users: (
       <>
         <circle cx="9" cy="9" r="3" />

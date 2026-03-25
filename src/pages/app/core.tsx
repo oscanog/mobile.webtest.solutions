@@ -11,11 +11,14 @@ import {
   type DashboardSummaryResponse,
 } from '../../features/dashboard/api'
 import {
-  createDiscordLinkCode,
-  fetchDiscordLink,
-  unlinkDiscord,
-  type DiscordLinkResponse,
-} from '../../features/discord/api'
+  fetchAiAdminRuntime,
+  saveAiAdminModel,
+  saveAiAdminProvider,
+  saveAiAdminRuntime,
+  type AiAdminModel,
+  type AiAdminProvider,
+  type AiAdminRuntimePayload,
+} from '../../features/ai-admin/api'
 import { useNotifications } from '../../features/notifications/context'
 import {
   createOrganization,
@@ -24,17 +27,7 @@ import {
   leaveOrganization,
   type OrganizationsResponse,
 } from '../../features/organizations/api'
-import {
-  fetchOpenClawRuntime,
-  requestOpenClawReload,
-  saveOpenClawModel,
-  saveOpenClawProvider,
-  saveOpenClawRuntime,
-  type OpenClawModel,
-  type OpenClawProvider,
-  type OpenClawRuntimePayload,
-} from '../../features/openclaw/api'
-import { EmptySection, FormMessage, LoadingSection, formatDateTime, formatRelativeTime, initialsFromUsername } from '../shared'
+import { EmptySection, FormMessage, LoadingSection, formatRelativeTime, initialsFromUsername } from '../shared'
 
 function DashboardChecklistWorkloadRow({ row }: { row: DashboardQaLeadChecklistRow }) {
   return (
@@ -533,115 +526,6 @@ export function NotificationsPage() {
   )
 }
 
-export function DiscordLinksPage() {
-  const { session } = useAuth()
-  const [data, setData] = useState<DiscordLinkResponse | null>(null)
-  const [linkCode, setLinkCode] = useState('')
-  const [message, setMessage] = useState('')
-  const [error, setError] = useState('')
-  const [pending, setPending] = useState(false)
-
-  const load = useCallback(async () => {
-    if (!session?.accessToken) {
-      setData(null)
-      return
-    }
-
-    try {
-      const result = await fetchDiscordLink(session.accessToken)
-      setData(result)
-      setError('')
-    } catch (loadError) {
-      setError(getErrorMessage(loadError, 'Unable to load Discord link status.'))
-    }
-  }, [session?.accessToken])
-
-  useEffect(() => {
-    void load()
-  }, [load])
-
-  const handleCreateCode = async () => {
-    if (!session?.accessToken) {
-      return
-    }
-
-    setPending(true)
-    setError('')
-    setMessage('')
-
-    try {
-      const result = await createDiscordLinkCode(session.accessToken)
-      setLinkCode(result.code)
-      setMessage(`Code ready until ${formatDateTime(result.expires_at)}.`)
-    } catch (actionError) {
-      setError(getErrorMessage(actionError, 'Unable to create a Discord link code.'))
-    } finally {
-      setPending(false)
-    }
-  }
-
-  const handleUnlink = async () => {
-    if (!session?.accessToken) {
-      return
-    }
-
-    setPending(true)
-    setError('')
-    setMessage('')
-
-    try {
-      await unlinkDiscord(session.accessToken)
-      setLinkCode('')
-      await load()
-      setMessage('Discord link removed.')
-    } catch (actionError) {
-      setError(getErrorMessage(actionError, 'Unable to remove Discord link.'))
-    } finally {
-      setPending(false)
-    }
-  }
-
-  return (
-    <div className="page-stack">
-      {message ? <FormMessage tone="success">{message}</FormMessage> : null}
-      {error ? <FormMessage tone="error">{error}</FormMessage> : null}
-
-      <SectionCard title="Discord Link" subtitle="Connect your BugCatcher account to OpenClaw">
-        {data?.link ? (
-          <div className="detail-pairs">
-            <DetailPair label="Discord User" value={data.link.discord_username || data.link.discord_global_name || data.link.discord_user_id} />
-            <DetailPair label="Linked At" value={formatDateTime(data.link.linked_at)} />
-            <DetailPair label="Last Seen" value={formatDateTime(data.link.last_seen_at)} />
-          </div>
-        ) : (
-          <p className="body-copy">No Discord account is linked yet. Generate a code and send it to OpenClaw in Discord.</p>
-        )}
-      </SectionCard>
-
-      <SectionCard title="Link Flow">
-        <div className="bullet-stack">
-          <div className="bullet-row"><span className="bullet-row__marker" /><p>Create a one-time code below.</p></div>
-          <div className="bullet-row"><span className="bullet-row__marker" /><p>Send <span className="pill">{linkCode || 'link YOURCODE'}</span> to OpenClaw.</p></div>
-          <div className="bullet-row"><span className="bullet-row__marker" /><p>OpenClaw will confirm the account binding in DM.</p></div>
-        </div>
-      </SectionCard>
-
-      <SectionCard title="Actions">
-        <div className="auth-actions-row">
-          <button type="button" className="button button--primary" disabled={pending} onClick={() => void handleCreateCode()}>
-            {pending ? 'Preparing...' : 'Generate Code'}
-          </button>
-          {data?.link ? (
-            <button type="button" className="button button--ghost" disabled={pending} onClick={() => void handleUnlink()}>
-              Unlink
-            </button>
-          ) : null}
-        </div>
-      </SectionCard>
-    </div>
-  )
-}
-
 export function SettingsPage() {
   const settings: Array<[string, boolean]> = [
     ['Compact cards', true],
@@ -672,7 +556,7 @@ export function SettingsPage() {
 
 export function SuperAdminPage() {
   const { session } = useAuth()
-  const [runtime, setRuntime] = useState<OpenClawRuntimePayload | null>(null)
+  const [runtime, setRuntime] = useState<AiAdminRuntimePayload | null>(null)
   const [error, setError] = useState('')
 
   useEffect(() => {
@@ -683,7 +567,7 @@ export function SuperAdminPage() {
       }
 
       try {
-        const result = await fetchOpenClawRuntime(session.accessToken)
+        const result = await fetchAiAdminRuntime(session.accessToken)
         setRuntime(result)
         setError('')
       } catch (loadError) {
@@ -706,18 +590,23 @@ export function SuperAdminPage() {
         <>
           <SectionCard title="Control Center">
             <div className="mini-grid">
-              <StatusTile title="Providers" value={`${runtime.runtime.providers.length}`} note="configured" tone="steel" />
-              <StatusTile title="Models" value={`${runtime.runtime.models.length}`} note="available" tone="success" />
-              <StatusTile title="Channels" value={`${runtime.runtime.channels.length}`} note="linked" tone="alert" />
+              <StatusTile title="AI Chat" value={runtime.runtime.is_enabled ? 'On' : 'Off'} note="built-in" tone="steel" />
+              <StatusTile title="Providers" value={`${runtime.providers.length}`} note="configured" tone="success" />
+              <StatusTile title="Models" value={`${runtime.models.length}`} note="available" tone="alert" />
             </div>
           </SectionCard>
 
           <SectionCard title="Runtime State">
             <div className="detail-pairs">
-              <DetailPair label="Config Version" value={runtime.control_plane.config_version} />
-              <DetailPair label="Gateway" value={runtime.runtime_status.gateway_state} />
-              <DetailPair label="Discord" value={runtime.runtime_status.discord_state} />
-              <DetailPair label="Last Update" value={formatDateTime(runtime.runtime_status.updated_at)} />
+              <DetailPair label="Assistant" value={runtime.runtime.assistant_name || 'BugCatcher AI'} />
+              <DetailPair
+                label="Default Provider"
+                value={runtime.providers.find((provider) => provider.id === runtime.runtime.default_provider_config_id)?.display_name || 'Not set'}
+              />
+              <DetailPair
+                label="Default Model"
+                value={runtime.models.find((model) => model.id === runtime.runtime.default_model_id)?.display_name || 'Not set'}
+              />
             </div>
           </SectionCard>
         </>
@@ -726,15 +615,15 @@ export function SuperAdminPage() {
   )
 }
 
-export function OpenClawPage() {
+export function AIAdminPage() {
   const { session } = useAuth()
-  const [runtime, setRuntime] = useState<OpenClawRuntimePayload | null>(null)
+  const [runtime, setRuntime] = useState<AiAdminRuntimePayload | null>(null)
   const [runtimeForm, setRuntimeForm] = useState({
-    ai_chat_enabled: true,
-    ai_chat_default_provider_config_id: 0,
-    ai_chat_default_model_id: 0,
-    ai_chat_assistant_name: 'BugCatcher AI',
-    ai_chat_system_prompt: '',
+    is_enabled: true,
+    default_provider_config_id: 0,
+    default_model_id: 0,
+    assistant_name: 'BugCatcher AI',
+    system_prompt: '',
   })
   const [providerForm, setProviderForm] = useState({
     provider_key: 'deepseek',
@@ -757,19 +646,19 @@ export function OpenClawPage() {
   const [error, setError] = useState('')
   const [pending, setPending] = useState(false)
 
-  const syncRuntime = useCallback((result: OpenClawRuntimePayload) => {
+  const syncRuntime = useCallback((result: AiAdminRuntimePayload) => {
     setRuntime(result)
     setRuntimeForm({
-      ai_chat_enabled: result.runtime.runtime.ai_chat.is_enabled,
-      ai_chat_default_provider_config_id: result.runtime.runtime.ai_chat.default_provider_config_id ?? 0,
-      ai_chat_default_model_id: result.runtime.runtime.ai_chat.default_model_id ?? 0,
-      ai_chat_assistant_name: result.runtime.runtime.ai_chat.assistant_name || 'BugCatcher AI',
-      ai_chat_system_prompt: result.runtime.runtime.ai_chat.system_prompt || '',
+      is_enabled: result.runtime.is_enabled,
+      default_provider_config_id: result.runtime.default_provider_config_id ?? 0,
+      default_model_id: result.runtime.default_model_id ?? 0,
+      assistant_name: result.runtime.assistant_name || 'BugCatcher AI',
+      system_prompt: result.runtime.system_prompt || '',
     })
     setModelForm((current) => ({
       ...current,
       provider_config_id:
-        current.provider_config_id > 0 ? current.provider_config_id : (result.runtime.runtime.ai_chat.default_provider_config_id ?? result.runtime.providers[0]?.id ?? 0),
+        current.provider_config_id > 0 ? current.provider_config_id : (result.runtime.default_provider_config_id ?? result.providers[0]?.id ?? 0),
     }))
   }, [])
 
@@ -780,37 +669,17 @@ export function OpenClawPage() {
     }
 
     try {
-      const result = await fetchOpenClawRuntime(session.accessToken)
+      const result = await fetchAiAdminRuntime(session.accessToken)
       syncRuntime(result)
       setError('')
     } catch (loadError) {
-      setError(getErrorMessage(loadError, 'Unable to load OpenClaw runtime.'))
+      setError(getErrorMessage(loadError, 'Unable to load AI admin settings.'))
     }
   }, [session?.accessToken, syncRuntime])
 
   useEffect(() => {
     void load()
   }, [load])
-
-  const handleReload = async () => {
-    if (!session?.accessToken) {
-      return
-    }
-
-    setPending(true)
-    setMessage('')
-    setError('')
-
-    try {
-      const result = await requestOpenClawReload(session.accessToken)
-      setMessage(`Reload request #${result.reload_request_id} queued.`)
-      await load()
-    } catch (reloadError) {
-      setError(getErrorMessage(reloadError, 'Unable to request runtime reload.'))
-    } finally {
-      setPending(false)
-    }
-  }
 
   const handleSaveRuntime = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault()
@@ -823,17 +692,17 @@ export function OpenClawPage() {
     setError('')
 
     try {
-      await saveOpenClawRuntime(session.accessToken, {
-        ai_chat_enabled: runtimeForm.ai_chat_enabled,
-        ai_chat_default_provider_config_id: runtimeForm.ai_chat_default_provider_config_id || null,
-        ai_chat_default_model_id: runtimeForm.ai_chat_default_model_id || null,
-        ai_chat_assistant_name: runtimeForm.ai_chat_assistant_name.trim(),
-        ai_chat_system_prompt: runtimeForm.ai_chat_system_prompt.trim(),
+      await saveAiAdminRuntime(session.accessToken, {
+        is_enabled: runtimeForm.is_enabled,
+        default_provider_config_id: runtimeForm.default_provider_config_id || null,
+        default_model_id: runtimeForm.default_model_id || null,
+        assistant_name: runtimeForm.assistant_name.trim(),
+        system_prompt: runtimeForm.system_prompt.trim(),
       })
-      setMessage('AI chat settings saved.')
+      setMessage('Built-in AI settings saved.')
       await load()
     } catch (saveError) {
-      setError(getErrorMessage(saveError, 'Unable to save AI chat settings.'))
+      setError(getErrorMessage(saveError, 'Unable to save built-in AI settings.'))
     } finally {
       setPending(false)
     }
@@ -850,7 +719,7 @@ export function OpenClawPage() {
     setError('')
 
     try {
-      await saveOpenClawProvider(session.accessToken, providerForm)
+      await saveAiAdminProvider(session.accessToken, providerForm)
       setMessage('Provider saved.')
       setProviderForm((current) => ({ ...current, api_key: '' }))
       await load()
@@ -872,7 +741,7 @@ export function OpenClawPage() {
     setError('')
 
     try {
-      await saveOpenClawModel(session.accessToken, modelForm)
+      await saveAiAdminModel(session.accessToken, modelForm)
       setMessage('Model saved.')
       await load()
     } catch (saveError) {
@@ -883,11 +752,11 @@ export function OpenClawPage() {
   }
 
   if (!runtime && !error) {
-    return <LoadingSection title="OpenClaw" subtitle="Runtime control" />
+    return <LoadingSection title="AI Admin" subtitle="Built-in assistant" />
   }
 
-  const providers = runtime?.runtime.providers ?? []
-  const models = runtime?.runtime.models ?? []
+  const providers = runtime?.providers ?? []
+  const models = runtime?.models ?? []
 
   return (
     <div className="page-stack">
@@ -896,26 +765,24 @@ export function OpenClawPage() {
 
       {runtime ? (
         <>
-          <SectionCard
-            title="Runtime"
-            subtitle={`Config ${runtime.control_plane.config_version}`}
-            action={
-              <button type="button" className="button button--ghost button--tiny" disabled={pending} onClick={() => void handleReload()}>
-                {pending ? 'Queuing...' : 'Reload'}
-              </button>
-            }
-          >
+          <SectionCard title="Built-in AI Runtime" subtitle="Shared by the in-app checklist drafting chat">
             <div className="detail-pairs">
-              <DetailPair label="Enabled" value={runtime.runtime.runtime.is_enabled ? 'Yes' : 'No'} />
-              <DetailPair label="Gateway" value={runtime.runtime.runtime_status.gateway_state} />
-              <DetailPair label="Discord" value={runtime.runtime.runtime_status.discord_state} />
-              <DetailPair label="Last Reload" value={formatDateTime(runtime.runtime.runtime_status.last_reload_at)} />
+              <DetailPair label="Enabled" value={runtime.runtime.is_enabled ? 'Yes' : 'No'} />
+              <DetailPair
+                label="Default Provider"
+                value={providers.find((provider) => provider.id === runtime.runtime.default_provider_config_id)?.display_name || 'Not set'}
+              />
+              <DetailPair
+                label="Default Model"
+                value={models.find((model) => model.id === runtime.runtime.default_model_id)?.display_name || 'Not set'}
+              />
+              <DetailPair label="Assistant" value={runtime.runtime.assistant_name || 'BugCatcher AI'} />
             </div>
           </SectionCard>
 
           <SectionCard title="Providers">
             <div className="list-stack">
-              {runtime.runtime.providers.map((provider) => (
+              {providers.map((provider) => (
                 <ListRow
                   key={provider.id}
                   icon="spark"
@@ -934,7 +801,7 @@ export function OpenClawPage() {
 
           <SectionCard title="Models">
             <div className="list-stack">
-              {runtime.runtime.models.map((model) => (
+              {models.map((model) => (
                 <ListRow
                   key={model.id}
                   icon="activity"
@@ -951,36 +818,36 @@ export function OpenClawPage() {
             </div>
           </SectionCard>
 
-          <SectionCard title="AI Chat Settings" subtitle="Used by the floating AI chat hotlink">
+          <SectionCard title="Built-in AI Chat" subtitle="Used by the in-app AI checklist drafting flow">
             <form className="auth-stack" onSubmit={handleSaveRuntime}>
               <label className="toggle-row">
                 <span>
-                  <strong>Enable AI Chat</strong>
+                  <strong>Enable built-in AI chat</strong>
                 </span>
                 <input
                   type="checkbox"
-                  checked={runtimeForm.ai_chat_enabled}
-                  onChange={(event) => setRuntimeForm((current) => ({ ...current, ai_chat_enabled: event.target.checked }))}
+                  checked={runtimeForm.is_enabled}
+                  onChange={(event) => setRuntimeForm((current) => ({ ...current, is_enabled: event.target.checked }))}
                 />
               </label>
               <input
                 className="input-inline"
-                value={runtimeForm.ai_chat_assistant_name}
-                onChange={(event) => setRuntimeForm((current) => ({ ...current, ai_chat_assistant_name: event.target.value }))}
+                value={runtimeForm.assistant_name}
+                onChange={(event) => setRuntimeForm((current) => ({ ...current, assistant_name: event.target.value }))}
                 placeholder="Assistant display name"
               />
               <select
                 className="input-inline select-inline"
-                value={runtimeForm.ai_chat_default_provider_config_id}
+                value={runtimeForm.default_provider_config_id}
                 onChange={(event) =>
                   setRuntimeForm((current) => ({
                     ...current,
-                    ai_chat_default_provider_config_id: Number(event.target.value),
+                    default_provider_config_id: Number(event.target.value),
                   }))
                 }
               >
                 <option value={0}>Select provider</option>
-                {providers.map((provider: OpenClawProvider) => (
+                {providers.map((provider: AiAdminProvider) => (
                   <option key={provider.id} value={provider.id}>
                     {provider.display_name}
                   </option>
@@ -988,16 +855,16 @@ export function OpenClawPage() {
               </select>
               <select
                 className="input-inline select-inline"
-                value={runtimeForm.ai_chat_default_model_id}
+                value={runtimeForm.default_model_id}
                 onChange={(event) =>
                   setRuntimeForm((current) => ({
                     ...current,
-                    ai_chat_default_model_id: Number(event.target.value),
+                    default_model_id: Number(event.target.value),
                   }))
                 }
               >
                 <option value={0}>Select model</option>
-                {models.map((model: OpenClawModel) => (
+                {models.map((model: AiAdminModel) => (
                   <option key={model.id} value={model.id}>
                     {model.display_name}
                   </option>
@@ -1005,12 +872,12 @@ export function OpenClawPage() {
               </select>
               <textarea
                 className="input-inline textarea-inline"
-                value={runtimeForm.ai_chat_system_prompt}
-                onChange={(event) => setRuntimeForm((current) => ({ ...current, ai_chat_system_prompt: event.target.value }))}
+                value={runtimeForm.system_prompt}
+                onChange={(event) => setRuntimeForm((current) => ({ ...current, system_prompt: event.target.value }))}
                 placeholder="Optional system prompt"
               />
               <button type="submit" className="button button--primary" disabled={pending}>
-                {pending ? 'Saving...' : 'Save AI Chat Settings'}
+                {pending ? 'Saving...' : 'Save Built-in AI Settings'}
               </button>
             </form>
           </SectionCard>
@@ -1062,7 +929,7 @@ export function OpenClawPage() {
                 onChange={(event) => setModelForm((current) => ({ ...current, provider_config_id: Number(event.target.value) }))}
               >
                 <option value={0}>Select provider</option>
-                {providers.map((provider: OpenClawProvider) => (
+                {providers.map((provider: AiAdminProvider) => (
                   <option key={provider.id} value={provider.id}>
                     {provider.display_name}
                   </option>
@@ -1094,24 +961,6 @@ export function OpenClawPage() {
                 {pending ? 'Saving...' : 'Save Model'}
               </button>
             </form>
-          </SectionCard>
-
-          <SectionCard title="Channels">
-            <div className="list-stack">
-              {runtime.runtime.channels.length ? (
-                runtime.runtime.channels.map((channel) => (
-                  <ListRow
-                    key={channel.id}
-                    icon="discord"
-                    title={channel.guild_id}
-                    detail={channel.channel_id}
-                    action={<span className={`pill ${channel.is_enabled ? 'pill--success' : ''}`}>{channel.is_enabled ? 'Live' : 'Disabled'}</span>}
-                  />
-                ))
-              ) : (
-                <p className="body-copy">No Discord channels are configured yet.</p>
-              )}
-            </div>
           </SectionCard>
         </>
       ) : null}

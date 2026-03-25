@@ -7,7 +7,6 @@ export type IconName =
   | 'bell'
   | 'shield'
   | 'checklist'
-  | 'discord'
   | 'users'
   | 'spark'
   | 'settings'

@@ -9,11 +9,10 @@ export type AppRouteKey =
   | 'profile'
   | 'notifications'
   | 'super-admin'
-  | 'openclaw'
+  | 'ai-admin'
   | 'manage-users'
   | 'checklist'
   | 'checklist-item'
-  | 'discord-links'
   | 'ai-chat'
   | 'settings'
 
@@ -86,10 +85,10 @@ export const appRoutes: AppRouteDefinition[] = [
     requiredSystemRole: 'super_admin',
   },
   {
-    key: 'openclaw',
-    path: '/app/openclaw',
-    title: 'OpenClaw',
-    subtitle: 'Runtime control',
+    key: 'ai-admin',
+    path: '/app/ai-admin',
+    title: 'AI Admin',
+    subtitle: 'Built-in assistant',
     navKey: 'utility',
     requiresAuth: true,
     requiredSystemRole: 'super_admin',
@@ -105,16 +104,14 @@ export const appRoutes: AppRouteDefinition[] = [
     requiredOrgRole: 'owner',
   },
   { key: 'checklist', path: '/app/checklist', title: 'Checklist', subtitle: 'Batch tracking', navKey: 'utility', requiresAuth: true, requiresOrg: true },
-  { key: 'discord-links', path: '/app/discord-links', title: 'Discord Link', subtitle: 'Channel health', navKey: 'utility', requiresAuth: true },
   { key: 'ai-chat', path: '/app/ai-chat', title: 'AI Chat', subtitle: 'BugCatcher assistant', navKey: 'utility', requiresAuth: true, requiresOrg: true },
   { key: 'settings', path: '/app/settings', title: 'Settings', subtitle: 'App defaults', navKey: 'utility', requiresAuth: true },
 ]
 
 const sidebarItemDefinitions: SidebarItemDefinition[] = [
   { key: 'super-admin', label: 'Super Admin', to: '/app/super-admin', icon: 'shield' },
-  { key: 'openclaw', label: 'OpenClaw', to: '/app/openclaw', icon: 'spark' },
+  { key: 'ai-admin', label: 'AI Admin', to: '/app/ai-admin', icon: 'spark' },
   { key: 'checklist', label: 'Checklist', to: '/app/checklist', icon: 'checklist' },
-  { key: 'discord-links', label: 'Discord Link', to: '/app/discord-links', icon: 'discord' },
   { key: 'ai-chat', label: 'AI Chat', to: '/app/ai-chat', icon: 'chat' },
   { key: 'manage-users', label: 'Manage Users', to: '/app/manage-users', icon: 'users' },
   { key: 'settings', label: 'Settings', to: '/app/settings', icon: 'settings' },
@@ -253,7 +250,10 @@ export function normalizeNotificationDestination(session: AuthSession | null, pa
     return canViewRoute(session, 'manage-users') ? '/app/manage-users' : getDefaultAppPath(session)
   }
   if (path.startsWith('/app/openclaw')) {
-    return canViewRoute(session, 'openclaw') ? '/app/openclaw' : getDefaultAppPath(session)
+    return canViewRoute(session, 'ai-admin') ? '/app/ai-admin' : getDefaultAppPath(session)
+  }
+  if (path.startsWith('/app/ai-admin')) {
+    return canViewRoute(session, 'ai-admin') ? '/app/ai-admin' : getDefaultAppPath(session)
   }
   if (path.startsWith('/app/ai-chat')) {
     return canViewRoute(session, 'ai-chat') ? '/app/ai-chat' : getDefaultAppPath(session)

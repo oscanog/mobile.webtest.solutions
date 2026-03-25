@@ -485,7 +485,7 @@ export function AIChatPage() {
           <div className="bullet-stack">
             <div className="bullet-row">
               <span className="bullet-row__marker" />
-              <p>{bootstrap?.error_message || 'AI checklist drafting is not configured correctly. Go to Super Admin > OpenClaw > AI Chat settings.'}</p>
+              <p>{bootstrap?.error_message || 'AI checklist drafting is not configured correctly. Go to Super Admin > AI Admin.'}</p>
             </div>
             <div className="bullet-row">
               <span className="bullet-row__marker" />

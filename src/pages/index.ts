@@ -7,15 +7,14 @@ export {
   SignupPage,
 } from './auth'
 export {
+  AIAdminPage,
   AIChatPage,
   ChecklistBatchDetailPage,
   ChecklistItemDetailPage,
   ChecklistPage,
   DashboardPage,
-  DiscordLinksPage,
   ManageUsersPage,
   NotificationsPage,
-  OpenClawPage,
   OrganizationsPage,
   ProfilePage,
   ProjectDetailPage,

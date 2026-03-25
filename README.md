@@ -40,10 +40,9 @@ App:
 - `/app/profile`
 - `/app/notifications`
 - `/app/super-admin`
-- `/app/openclaw`
+- `/app/ai-admin`
 - `/app/manage-users`
 - `/app/checklist`
-- `/app/discord-links`
 - `/app/settings`
 
 ## Navigation Model
@@ -59,10 +58,9 @@ Bottom nav (compact labels):
 Drawer (legacy-aligned names):
 
 - Super Admin
+- AI Admin
 - Checklist
-- Discord Link
 - Manage Users
-- OpenClaw
 - Settings
 - Logout
 
