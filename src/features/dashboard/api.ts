@@ -1,4 +1,5 @@
 import { requestJson, withOrgQuery } from '../../lib/api'
+import { normalizeWorkflowStatus, type WorkflowStatus } from '../issues/api'
 
 export interface DashboardSummary {
   open_issues: number
@@ -15,14 +16,21 @@ export interface DashboardTrendPoint {
   checklist: number
 }
 
-export interface DashboardRecentIssue {
+interface RawDashboardRecentIssue {
   id: number
   org_id: number
   org_name: string
   title: string
   status: string
-  assign_status: string
+  workflow_status?: string | null
+  assign_status?: string | null
   author_username: string
+}
+
+export interface DashboardRecentIssue extends Omit<RawDashboardRecentIssue, 'status' | 'workflow_status' | 'assign_status'> {
+  status: 'open' | 'closed'
+  workflow_status: WorkflowStatus
+  assign_status: WorkflowStatus
 }
 
 export interface DashboardQaLeadChecklistRow {
@@ -57,15 +65,33 @@ export interface DashboardOrgContext {
   active_scope?: string
 }
 
-export interface DashboardSummaryResponse {
+interface RawDashboardSummaryResponse {
   org: DashboardOrgContext
   scope: string
   summary: DashboardSummary
   trend: DashboardTrendPoint[]
-  recent_issues: DashboardRecentIssue[]
+  recent_issues: RawDashboardRecentIssue[]
   qa_lead_checklist: DashboardQaLeadChecklistSummary | null
 }
 
-export function fetchDashboardSummary(accessToken: string, orgId?: number | null) {
-  return requestJson<DashboardSummaryResponse>(withOrgQuery('/dashboard/summary', orgId), { method: 'GET' }, accessToken)
+export interface DashboardSummaryResponse extends Omit<RawDashboardSummaryResponse, 'recent_issues'> {
+  recent_issues: DashboardRecentIssue[]
+}
+
+function normalizeRecentIssue(issue: RawDashboardRecentIssue): DashboardRecentIssue {
+  const workflowStatus = normalizeWorkflowStatus(issue.workflow_status ?? issue.assign_status)
+  return {
+    ...issue,
+    status: workflowStatus === 'closed' || issue.status === 'closed' ? 'closed' : 'open',
+    workflow_status: workflowStatus,
+    assign_status: workflowStatus,
+  }
+}
+
+export async function fetchDashboardSummary(accessToken: string, orgId?: number | null) {
+  const response = await requestJson<RawDashboardSummaryResponse>(withOrgQuery('/dashboard/summary', orgId), { method: 'GET' }, accessToken)
+  return {
+    ...response,
+    recent_issues: response.recent_issues.map(normalizeRecentIssue),
+  }
 }

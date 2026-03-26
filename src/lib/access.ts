@@ -38,6 +38,7 @@ export interface SidebarItemDefinition {
 
 export interface IssueAccessSubject {
   status: string
+  workflow_status?: string
   assign_status: string
   pm_id: number
   assigned_dev_id: number
@@ -296,6 +297,11 @@ function isSystemAdmin(session: AuthSession | null): boolean {
   return hasSystemRole(session, 'super_admin') || hasSystemRole(session, 'admin')
 }
 
+function getIssueWorkflowStatus(issue: IssueAccessSubject): string {
+  const rawStatus = issue.workflow_status || issue.assign_status || ''
+  return rawStatus === 'junior_done' ? 'done_by_junior' : rawStatus
+}
+
 export function canPerformIssueAction(
   session: AuthSession | null,
   issue: IssueAccessSubject,
@@ -305,44 +311,45 @@ export function canPerformIssueAction(
   const userId = session?.user.id ?? 0
   const orgRole = membership?.role ?? ''
   const isOwner = Boolean(membership?.is_owner || membership?.role === 'owner')
+  const workflowStatus = getIssueWorkflowStatus(issue)
+  const isClosed = workflowStatus === 'closed' || issue.status === 'closed'
   const visibility: Record<IssueWorkflowActionKey, boolean> = {
     'assign-dev':
       orgRole === 'Project Manager' &&
-      (issue.assign_status === 'unassigned' ||
-        (issue.assign_status === 'rejected' && issue.pm_id === userId)),
+      (workflowStatus === 'unassigned' || (workflowStatus === 'rejected' && issue.pm_id === userId)),
     'assign-junior':
       orgRole === 'Senior Developer' &&
-      issue.assign_status === 'with_senior' &&
+      workflowStatus === 'with_senior' &&
       issue.assigned_dev_id === userId,
     'junior-done':
       orgRole === 'Junior Developer' &&
-      issue.assign_status === 'with_junior' &&
+      workflowStatus === 'with_junior' &&
       issue.assigned_junior_id === userId,
     'assign-qa':
       orgRole === 'Senior Developer' &&
-      issue.assign_status === 'junior_done' &&
+      workflowStatus === 'done_by_junior' &&
       issue.assigned_dev_id === userId,
     'report-senior-qa':
       orgRole === 'QA Tester' &&
-      issue.assign_status === 'with_qa' &&
+      workflowStatus === 'with_qa' &&
       issue.assigned_qa_id === userId,
     'report-qa-lead':
       orgRole === 'Senior QA' &&
-      issue.assign_status === 'with_senior_qa' &&
+      workflowStatus === 'with_senior_qa' &&
       issue.assigned_senior_qa_id === userId,
     'qa-lead-approve':
       orgRole === 'QA Lead' &&
-      issue.assign_status === 'with_qa_lead' &&
+      workflowStatus === 'with_qa_lead' &&
       issue.assigned_qa_lead_id === userId,
     'qa-lead-reject':
       orgRole === 'QA Lead' &&
-      issue.assign_status === 'with_qa_lead' &&
+      workflowStatus === 'with_qa_lead' &&
       issue.assigned_qa_lead_id === userId,
     'pm-close':
       orgRole === 'Project Manager' &&
-      issue.assign_status === 'approved' &&
+      workflowStatus === 'approved' &&
       issue.pm_id === userId,
-    delete: issue.status !== 'closed' && (isOwner || isSystemAdmin(session)),
+    delete: !isClosed && (isOwner || isSystemAdmin(session)),
   }
 
   if (!action) {

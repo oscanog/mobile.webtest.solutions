@@ -11,6 +11,7 @@ import {
   type DashboardQaLeadChecklistRow,
   type DashboardSummaryResponse,
 } from '../../features/dashboard/api'
+import { formatIssueWorkflowLabel } from '../../features/issues/api'
 import { changePassword, updateProfile } from '../../features/account/api'
 import {
   fetchAiAdminRuntime,
@@ -227,7 +228,7 @@ export function DashboardPage() {
                   key={issue.id}
                   icon="reports"
                   title={issue.title}
-                  detail={`${issue.org_name} • ${issue.author_username} • ${issue.assign_status}`}
+                  detail={`${issue.org_name} • ${issue.author_username} • ${formatIssueWorkflowLabel(issue.workflow_status)}`}
                   action={
                     <Link className="inline-link" to={`/app/reports/${issue.id}`}>
                       Open
