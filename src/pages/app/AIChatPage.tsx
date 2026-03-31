@@ -53,6 +53,8 @@ type ThreadStatus = {
   tone: ThreadStatusTone
 }
 
+type ThreadViewTab = 'chat' | 'summary'
+
 const emptyDraftForm: DraftFormState = {
   projectId: 0,
   targetMode: 'new',
@@ -396,6 +398,7 @@ function AIChatSummaryCard({
   locked,
   onToggle,
   onEditStep,
+  showToggle = true,
 }: {
   modeLabel: string
   rows: SummaryRow[]
@@ -403,6 +406,7 @@ function AIChatSummaryCard({
   locked: boolean
   onToggle: () => void
   onEditStep?: (step: Exclude<FlowStep, 5>) => void
+  showToggle?: boolean
 }) {
   return (
     <section className="ai-chat-summary-card">
@@ -411,11 +415,13 @@ function AIChatSummaryCard({
           <p className="eyebrow">Checklist summary</p>
           <h2>Target summary</h2>
         </div>
-        <div className="ai-chat-summary-card__actions">
-          <button type="button" className="button button--ghost button--tiny" onClick={onToggle}>
-            {expanded ? 'Hide' : 'Show'}
-          </button>
-        </div>
+        {showToggle ? (
+          <div className="ai-chat-summary-card__actions">
+            <button type="button" className="button button--ghost button--tiny" onClick={onToggle}>
+              {expanded ? 'Hide' : 'Show'}
+            </button>
+          </div>
+        ) : null}
       </div>
       {locked ? <p className="ai-chat-summary-card__note">This chat is locked because at least one generated checklist item was already approved.</p> : null}
       {expanded ? (
@@ -1325,7 +1331,7 @@ function AIChatThreadView({
   const [activeThread, setActiveThread] = useState<AIChatThread | null>(null)
   const [composer, setComposer] = useState('')
   const [attachments, setAttachments] = useState<File[]>([])
-  const [summaryExpanded, setSummaryExpanded] = useState(true)
+  const [activeThreadTab, setActiveThreadTab] = useState<ThreadViewTab>('chat')
   const [railOpen, setRailOpen] = useState(false)
   const [loadingThreads, setLoadingThreads] = useState(true)
   const [loadingThread, setLoadingThread] = useState(true)
@@ -1398,6 +1404,10 @@ function AIChatThreadView({
       ignore = true
     }
   }, [accessToken, activeOrgId, activeThreadId])
+
+  useEffect(() => {
+    setActiveThreadTab('chat')
+  }, [activeThreadId])
 
   const summary = useMemo(() => buildSummaryRows(draftContextToForm(activeThread?.draft_context), [], null, activeThread?.draft_context), [activeThread?.draft_context])
   const canSend = Boolean(bootstrap.enabled && activeThread?.draft_context.is_ready && !pending && attachments.length > 0)
@@ -1542,35 +1552,65 @@ function AIChatThreadView({
           </section>
         ) : activeThread ? (
           <div className="ai-chat-thread-stage">
-            <AIChatSummaryCard
-              modeLabel={summary.modeLabel}
-              rows={summary.rows}
-              expanded={summaryExpanded}
-              locked={Boolean(activeThread.draft_context.is_locked)}
-              onToggle={() => setSummaryExpanded((current) => !current)}
-              onEditStep={activeThread.draft_context.is_locked ? undefined : (targetStep) => navigate(`/app/ai-chat/new?threadId=${activeThread.id}&step=${targetStep}`)}
-            />
-            <section className="ai-chat-thread-stage__conversation">
-              <AIChatConversation
-                thread={activeThread}
-                assistantName={bootstrap.assistant_name || 'BugCatcher AI'}
-                emptyTitle="No conversation yet"
-                emptyMessage="This chat is ready for your first screenshot-based checklist draft."
-                pendingItemId={pendingItemId}
-                onReviewAction={(item, action) => void handleReviewAction(item, action)}
-              />
-            </section>
-            <AIChatComposer
-              composer={composer}
-              attachments={attachments}
-              pending={pending}
-              canSend={canSend}
-              disabled={pending || !activeThread.draft_context.is_ready}
-              helperText={activeThread.draft_context.is_ready ? 'At least one image is required for each new checklist draft request.' : 'Edit the checklist target before drafting new checklist items.'}
-              onComposerChange={setComposer}
-              onAttachmentsChange={setAttachments}
-              onSend={() => void handleSend()}
-            />
+            <div className="ai-chat-thread-stage__tab-bar">
+              <div className="ai-chat-thread-stage__tab-switch" role="tablist" aria-label="Thread view">
+                <button
+                  type="button"
+                  role="tab"
+                  aria-selected={activeThreadTab === 'chat'}
+                  className={`ai-chat-thread-stage__tab ${activeThreadTab === 'chat' ? 'is-active' : ''}`}
+                  onClick={() => setActiveThreadTab('chat')}
+                >
+                  Chat
+                </button>
+                <button
+                  type="button"
+                  role="tab"
+                  aria-selected={activeThreadTab === 'summary'}
+                  className={`ai-chat-thread-stage__tab ${activeThreadTab === 'summary' ? 'is-active' : ''}`}
+                  onClick={() => setActiveThreadTab('summary')}
+                >
+                  Summary
+                </button>
+              </div>
+            </div>
+            {activeThreadTab === 'summary' ? (
+              <div className="ai-chat-thread-stage__panel ai-chat-thread-stage__panel--summary">
+                <AIChatSummaryCard
+                  modeLabel={summary.modeLabel}
+                  rows={summary.rows}
+                  expanded
+                  locked={Boolean(activeThread.draft_context.is_locked)}
+                  onToggle={() => undefined}
+                  showToggle={false}
+                  onEditStep={activeThread.draft_context.is_locked ? undefined : (targetStep) => navigate(`/app/ai-chat/new?threadId=${activeThread.id}&step=${targetStep}`)}
+                />
+              </div>
+            ) : (
+              <div className="ai-chat-thread-stage__panel ai-chat-thread-stage__panel--chat">
+                <section className="ai-chat-thread-stage__conversation">
+                  <AIChatConversation
+                    thread={activeThread}
+                    assistantName={bootstrap.assistant_name || 'BugCatcher AI'}
+                    emptyTitle="No conversation yet"
+                    emptyMessage="This chat is ready for your first screenshot-based checklist draft."
+                    pendingItemId={pendingItemId}
+                    onReviewAction={(item, action) => void handleReviewAction(item, action)}
+                  />
+                </section>
+                <AIChatComposer
+                  composer={composer}
+                  attachments={attachments}
+                  pending={pending}
+                  canSend={canSend}
+                  disabled={pending || !activeThread.draft_context.is_ready}
+                  helperText={activeThread.draft_context.is_ready ? 'At least one image is required for each new checklist draft request.' : 'Edit the checklist target before drafting new checklist items.'}
+                  onComposerChange={setComposer}
+                  onAttachmentsChange={setAttachments}
+                  onSend={() => void handleSend()}
+                />
+              </div>
+            )}
           </div>
         ) : (
           <section className="ai-chat-state-card">
