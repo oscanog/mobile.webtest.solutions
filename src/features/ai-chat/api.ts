@@ -1,5 +1,7 @@
 import { API_BASE_PATH, ApiError, requestJson, withOrgQuery } from '../../lib/api'
 
+export type AIChatSourceMode = 'screenshot' | 'link'
+
 export interface AIChatBootstrap {
   enabled: boolean
   assistant_name: string
@@ -14,6 +16,16 @@ export interface AIChatBootstrap {
     display_name: string
     model_id: string
     supports_vision: boolean
+  }
+  source_modes?: {
+    link: {
+      enabled: boolean
+      warning_message: string
+    }
+    screenshot: {
+      enabled: boolean
+      warning_message: string
+    }
   }
 }
 
@@ -31,6 +43,7 @@ export interface AIChatAttachment {
 export interface AIGeneratedChecklistItem {
   id: number
   project_id: number
+  source_mode: AIChatSourceMode
   target_mode: 'new' | 'existing'
   target_batch_id: number | null
   batch_title: string
@@ -65,6 +78,7 @@ export interface AIGeneratedChecklistItem {
 export interface AIChatDraftContext {
   project_id: number
   project_name: string
+  source_mode: AIChatSourceMode
   target_mode: '' | 'new' | 'existing'
   existing_batch_id: number | null
   existing_batch_title: string
@@ -74,6 +88,9 @@ export interface AIChatDraftContext {
   module_name: string
   submodule_name: string
   page_url: string
+  page_link_status: string
+  page_link_warning: string
+  has_saved_link_credentials: boolean
   is_ready: boolean
   is_locked: boolean
 }
@@ -122,12 +139,23 @@ export type AIChatThreadSummary = Pick<
 
 export interface DraftContextPayload {
   project_id: number
+  source_mode: AIChatSourceMode
   target_mode: 'new' | 'existing'
   existing_batch_id?: number
   batch_title?: string
   module_name?: string
   submodule_name?: string
   page_url?: string
+}
+
+export interface AIChatPageLinkPreview {
+  page_url: string
+  status: string
+  page_title: string
+  excerpt: string
+  warning_message: string
+  requires_credentials: boolean
+  credentials_saved: boolean
 }
 
 interface JsonEnvelope<T> {
@@ -202,6 +230,29 @@ export function updateAIChatDraftContext(accessToken: string, orgId: number, thr
     `/ai-chat/threads/${threadId}/draft-context`,
     {
       method: 'PATCH',
+      body: JSON.stringify({
+        org_id: orgId,
+        ...payload,
+      }),
+    },
+    accessToken,
+  )
+}
+
+export function previewAIChatPageLink(
+  accessToken: string,
+  orgId: number,
+  threadId: number,
+  payload: {
+    page_url: string
+    basic_auth_username?: string
+    basic_auth_password?: string
+  },
+) {
+  return requestJson<{ thread: AIChatThread; page_link_preview: AIChatPageLinkPreview }>(
+    `/ai-chat/threads/${threadId}/page-link-preview`,
+    {
+      method: 'POST',
       body: JSON.stringify({
         org_id: orgId,
         ...payload,

@@ -2,7 +2,7 @@ import { useDeferredValue, useEffect, useMemo, useRef, useState, type ChangeEven
 import { Link, useNavigate, useOutletContext, useParams, useSearchParams } from 'react-router-dom'
 import { useAuth } from '../../auth-context'
 import { AppTopBar, type AppShellOutletContext } from '../../components/layout'
-import { Icon, ThemeToggle } from '../../components/ui'
+import { BrandMark, Icon, ThemeToggle } from '../../components/ui'
 import {
   approveGeneratedChecklistItem,
   createAIChatThread,
@@ -11,10 +11,13 @@ import {
   fetchAIChatBootstrap,
   fetchAIChatThread,
   fetchAIChatThreads,
+  previewAIChatPageLink,
   rejectGeneratedChecklistItem,
   updateAIChatDraftContext,
   type AIChatBootstrap,
   type AIChatDraftContext,
+  type AIChatPageLinkPreview,
+  type AIChatSourceMode,
   type AIChatThread,
   type AIChatThreadSummary,
   type AIGeneratedChecklistItem,
@@ -30,6 +33,7 @@ export type AIChatPageView = 'landing' | 'create' | 'thread'
 type FlowStep = 1 | 2 | 3 | 4 | 5
 
 type DraftFormState = {
+  sourceMode: AIChatSourceMode
   projectId: number
   targetMode: 'new' | 'existing'
   existingBatchId: number
@@ -55,23 +59,100 @@ type ThreadStatus = {
 
 type ThreadViewTab = 'chat' | 'summary'
 
-const emptyDraftForm: DraftFormState = {
-  projectId: 0,
-  targetMode: 'new',
-  existingBatchId: 0,
-  batchTitle: '',
-  moduleName: '',
-  submoduleName: '',
-  pageUrl: '',
+type SourceChooserOption = {
+  mode: AIChatSourceMode
+  title: string
+  description: string
+  requirement: string
+  emoji: string
+  accent: 'screenshot' | 'link'
+}
+
+const sourceChooserOptions: SourceChooserOption[] = [
+  {
+    mode: 'screenshot',
+    title: 'Via screenshot',
+    description: 'Upload a screenshot and add the page link.',
+    requirement: 'Needs image + link',
+    emoji: '🖼️',
+    accent: 'screenshot',
+  },
+  {
+    mode: 'link',
+    title: 'Via link',
+    description: 'Paste a page link. No screenshot needed.',
+    requirement: 'Needs link only',
+    emoji: '🔗',
+    accent: 'link',
+  },
+]
+
+function createEmptyDraftForm(sourceMode: AIChatSourceMode = 'screenshot'): DraftFormState {
+  return {
+    sourceMode,
+    projectId: 0,
+    targetMode: 'new',
+    existingBatchId: 0,
+    batchTitle: '',
+    moduleName: '',
+    submoduleName: '',
+    pageUrl: '',
+  }
 }
 
 const flowSteps: Array<{ step: FlowStep; label: string; icon: 'projects' | 'checklist' | 'activity' | 'globe' | 'chat' }> = [
-  { step: 1, label: 'Project', icon: 'projects' },
-  { step: 2, label: 'Batch', icon: 'checklist' },
-  { step: 3, label: 'Module', icon: 'activity' },
-  { step: 4, label: 'Link', icon: 'globe' },
+  { step: 1, label: 'Link', icon: 'globe' },
+  { step: 2, label: 'Project', icon: 'projects' },
+  { step: 3, label: 'Batch', icon: 'checklist' },
+  { step: 4, label: 'Module', icon: 'activity' },
   { step: 5, label: 'Chat', icon: 'chat' },
 ]
+
+function normalizeSourceMode(value: string | null | undefined, fallback: AIChatSourceMode = 'screenshot'): AIChatSourceMode {
+  return value === 'link' ? 'link' : fallback
+}
+
+function sourceModeRequiresAttachments(sourceMode: AIChatSourceMode) {
+  return sourceMode === 'screenshot'
+}
+
+function sourceModeLabel(sourceMode: AIChatSourceMode) {
+  return sourceMode === 'link' ? 'Via link' : 'Via screenshot'
+}
+
+function sourceModeComposerPlaceholder(sourceMode: AIChatSourceMode) {
+  return sourceMode === 'link'
+    ? 'Describe what the AI should focus on from this page link'
+    : 'Describe the module or add extra testing guidance for the uploaded screenshots'
+}
+
+function sourceModeComposerHelperText(sourceMode: AIChatSourceMode, isReady: boolean) {
+  if (!isReady) {
+    return 'Edit the checklist target before drafting new checklist items.'
+  }
+
+  return sourceModeRequiresAttachments(sourceMode)
+    ? 'At least one image is required for each new checklist draft request.'
+    : 'This source mode works from the saved page link. Screenshots are not required.'
+}
+
+function isPreviewAcceptedForLink(status: string) {
+  return status === 'ready' || status === 'thin_content'
+}
+
+function getSourceModeAvailability(bootstrap: AIChatBootstrap, sourceMode: AIChatSourceMode) {
+  if (sourceMode === 'link') {
+    return {
+      enabled: bootstrap.source_modes?.link.enabled ?? bootstrap.enabled,
+      warning: bootstrap.source_modes?.link.warning_message ?? '',
+    }
+  }
+
+  return {
+    enabled: bootstrap.source_modes?.screenshot.enabled ?? Boolean(bootstrap.model?.supports_vision),
+    warning: bootstrap.source_modes?.screenshot.warning_message ?? '',
+  }
+}
 
 function isValidPageUrl(value: string) {
   try {
@@ -94,10 +175,11 @@ function formatFileSize(size: number) {
 
 function draftContextToForm(context?: AIChatDraftContext | null): DraftFormState {
   if (!context) {
-    return emptyDraftForm
+    return createEmptyDraftForm()
   }
 
   return {
+    sourceMode: context.source_mode === 'link' ? 'link' : 'screenshot',
     projectId: context.project_id ?? 0,
     targetMode: context.target_mode === 'existing' ? 'existing' : 'new',
     existingBatchId: context.existing_batch_id ?? 0,
@@ -114,6 +196,7 @@ function formMatchesContext(form: DraftFormState, context?: AIChatDraftContext |
   }
 
   return (
+    form.sourceMode === normalizeSourceMode(context.source_mode, 'screenshot') &&
     form.projectId === (context.project_id ?? 0) &&
     form.targetMode === (context.target_mode === 'existing' ? 'existing' : 'new') &&
     form.existingBatchId === (context.existing_batch_id ?? 0) &&
@@ -125,6 +208,11 @@ function formMatchesContext(form: DraftFormState, context?: AIChatDraftContext |
 }
 
 function buildDraftPayload(form: DraftFormState): DraftContextPayload {
+  const pageUrl = form.pageUrl.trim()
+  if (!isValidPageUrl(pageUrl)) {
+    throw new Error('Link is required and must be a valid http:// or https:// URL.')
+  }
+
   if (form.projectId <= 0) {
     throw new Error('Select a project before drafting checklist items.')
   }
@@ -136,25 +224,25 @@ function buildDraftPayload(form: DraftFormState): DraftContextPayload {
 
     return {
       project_id: form.projectId,
+      source_mode: form.sourceMode,
       target_mode: 'existing',
       existing_batch_id: form.existingBatchId,
+      page_url: pageUrl,
     }
   }
 
   if (!form.batchTitle.trim() || !form.moduleName.trim()) {
     throw new Error('Batch title and module name are required for a new checklist batch.')
   }
-  if (!isValidPageUrl(form.pageUrl.trim())) {
-    throw new Error('Link is required and must be a valid http:// or https:// URL.')
-  }
 
   return {
     project_id: form.projectId,
+    source_mode: form.sourceMode,
     target_mode: 'new',
     batch_title: form.batchTitle.trim(),
     module_name: form.moduleName.trim(),
     submodule_name: form.submoduleName.trim(),
-    page_url: form.pageUrl.trim(),
+    page_url: pageUrl,
   }
 }
 
@@ -245,6 +333,7 @@ function getThreadModulePreview(summary: AIChatThreadSummary, detail?: AIChatThr
 function buildSummaryRows(form: DraftFormState, projects: ProjectSummary[], selectedBatch: ChecklistBatch | null, fallbackContext?: AIChatDraftContext | null) {
   const isExisting = form.targetMode === 'existing'
   const selectedProject = projects.find((project) => project.id === form.projectId) ?? null
+  const sourceValue = sourceModeLabel(form.sourceMode)
   const projectName = selectedProject?.name || fallbackContext?.project_name || 'Not selected'
   const batchValue = isExisting
     ? selectedBatch?.title || fallbackContext?.existing_batch_title || 'No existing batch selected'
@@ -255,24 +344,24 @@ function buildSummaryRows(form: DraftFormState, projects: ProjectSummary[], sele
   const submoduleValue = isExisting
     ? selectedBatch?.submodule_name || fallbackContext?.submodule_name || ''
     : form.submoduleName.trim() || fallbackContext?.submodule_name || ''
-  const pageUrl = isExisting ? selectedBatch?.page_url || fallbackContext?.page_url || '' : form.pageUrl.trim() || fallbackContext?.page_url || ''
+  const pageUrl = form.pageUrl.trim() || selectedBatch?.page_url || fallbackContext?.page_url || ''
 
   const rows: SummaryRow[] = [
-    { label: 'Project', value: projectName, step: 1 },
-    { label: 'Batch', value: batchValue, step: 2 },
-    { label: 'Module', value: moduleValue, step: 3 },
+    { label: 'Source', value: sourceValue, step: 1 },
+    {
+      label: 'Page link',
+      value: pageUrl || 'No saved page link',
+      step: 1,
+      href: pageUrl || undefined,
+    },
+    { label: 'Project', value: projectName, step: 2 },
+    { label: 'Batch', value: batchValue, step: 3 },
+    { label: 'Module', value: moduleValue, step: 4 },
   ]
 
   if (submoduleValue) {
-    rows.push({ label: 'Submodule', value: submoduleValue, step: 3 })
+    rows.push({ label: 'Submodule', value: submoduleValue, step: 4 })
   }
-
-  rows.push({
-    label: 'Page link',
-    value: pageUrl || 'No saved page link',
-    step: 4,
-    href: pageUrl || undefined,
-  })
 
   return {
     modeLabel: isExisting ? 'Existing batch' : 'New batch',
@@ -287,14 +376,124 @@ function buildThreadTitle(form: DraftFormState, selectedProject: ProjectSummary 
   return form.moduleName.trim() || form.batchTitle.trim() || selectedProject?.name || 'New chat'
 }
 
+function previewFromDraftContext(context?: AIChatDraftContext | null): AIChatPageLinkPreview | null {
+  if (!context?.page_url) {
+    return null
+  }
+
+  return {
+    page_url: context.page_url,
+    status: context.page_link_status || '',
+    page_title: '',
+    excerpt: '',
+    warning_message: context.page_link_warning || '',
+    requires_credentials: context.page_link_status === 'auth_required_basic',
+    credentials_saved: context.has_saved_link_credentials,
+  }
+}
+
+function formatPreviewStatusLabel(status: string) {
+  switch (status) {
+    case 'ready':
+      return 'Ready'
+    case 'thin_content':
+      return 'Limited content'
+    case 'auth_required_basic':
+      return 'Needs Basic Auth'
+    case 'unsupported_auth':
+      return 'Unsupported login'
+    case 'unreachable':
+      return 'Unreachable'
+    case 'invalid':
+      return 'Invalid link'
+    default:
+      return 'Not checked'
+  }
+}
+
+function previewTone(status: string): 'success' | 'alert' | 'default' {
+  if (status === 'ready' || status === 'thin_content') {
+    return 'success'
+  }
+  if (status === 'auth_required_basic' || status === 'unsupported_auth' || status === 'unreachable' || status === 'invalid') {
+    return 'alert'
+  }
+  return 'default'
+}
+
 function normalizePositiveInt(value: string | null) {
   const parsed = Number(value)
   return Number.isInteger(parsed) && parsed > 0 ? parsed : null
 }
 
+function buildNewChatRoute(sourceMode: AIChatSourceMode) {
+  return `/app/ai-chat/new?source=${sourceMode}`
+}
+
 function AIChatHeader({ title, subtitle, leading, actions }: { title: string; subtitle: string; leading?: ReactNode; actions?: ReactNode }) {
   return (
     <AppTopBar eyebrow="AI Chat" title={title} subtitle={subtitle} leading={leading} actions={actions} />
+  )
+}
+
+function AIChatSourceChooser({
+  bootstrap,
+  open,
+  onClose,
+  onSelect,
+}: {
+  bootstrap: AIChatBootstrap
+  open: boolean
+  onClose: () => void
+  onSelect: (sourceMode: AIChatSourceMode) => void
+}) {
+  if (!open) {
+    return null
+  }
+
+  return (
+    <div className="ai-chat-source-sheet" role="dialog" aria-modal="true" aria-labelledby="ai-chat-source-sheet-title">
+      <button type="button" className="ai-chat-source-sheet__backdrop" aria-label="Close source chooser" onClick={onClose} />
+      <section className="ai-chat-source-sheet__card">
+        <div className="ai-chat-source-sheet__brand">
+          <div className="ai-chat-source-sheet__brand-mark">
+            <BrandMark />
+          </div>
+          <button type="button" className="button button--ghost button--tiny" onClick={onClose}>
+            Cancel
+          </button>
+        </div>
+        <div className="ai-chat-source-sheet__copy">
+          <p className="eyebrow">New chat</p>
+          <h2 id="ai-chat-source-sheet-title">What kind of checklist do you want to AI-generate?</h2>
+          <p>Choose one simple starting point.</p>
+        </div>
+        <div className="ai-chat-source-sheet__choices">
+          {sourceChooserOptions.map((option) => {
+            const availability = getSourceModeAvailability(bootstrap, option.mode)
+            return (
+              <button
+                key={option.mode}
+                type="button"
+                className={`ai-chat-source-card ai-chat-source-card--${option.accent} ${availability.enabled ? '' : 'is-disabled'}`}
+                onClick={() => availability.enabled && onSelect(option.mode)}
+                disabled={!availability.enabled}
+              >
+                <span className="ai-chat-source-card__emoji" aria-hidden="true">
+                  {option.emoji}
+                </span>
+                <span className="ai-chat-source-card__copy">
+                  <strong>{option.title}</strong>
+                  <small>{option.description}</small>
+                </span>
+                <span className="pill ai-chat-source-card__pill">{option.requirement}</span>
+                {!availability.enabled && availability.warning ? <small className="ai-chat-source-card__warning">{availability.warning}</small> : null}
+              </button>
+            )
+          })}
+        </div>
+      </section>
+    </div>
   )
 }
 
@@ -576,28 +775,33 @@ function AIChatConversation({
 }
 
 function AIChatComposer({
+  sourceMode,
   composer,
   attachments,
   pending,
   canSend,
   disabled,
   helperText,
+  placeholder,
   onComposerChange,
   onAttachmentsChange,
   onSend,
 }: {
+  sourceMode: AIChatSourceMode
   composer: string
   attachments: File[]
   pending: boolean
   canSend: boolean
   disabled: boolean
   helperText: string
+  placeholder: string
   onComposerChange: (value: string) => void
   onAttachmentsChange: (files: File[]) => void
   onSend: () => void
 }) {
   const textareaRef = useRef<HTMLTextAreaElement | null>(null)
   const fileInputRef = useRef<HTMLInputElement | null>(null)
+  const allowAttachments = sourceModeRequiresAttachments(sourceMode)
 
   useEffect(() => {
     const textarea = textareaRef.current
@@ -637,7 +841,8 @@ function AIChatComposer({
         </div>
       ) : null}
       <div className="ai-chat-compose__input">
-        <button
+        {allowAttachments ? (
+          <button
           type="button"
           className="ai-chat-compose__media-button"
           onClick={() => fileInputRef.current?.click()}
@@ -645,12 +850,14 @@ function AIChatComposer({
           aria-label="Add screenshots"
           title="Add screenshots"
         >
+          <Icon name="spark" />
           <span aria-hidden="true">🖼️</span>
-        </button>
+          </button>
+        ) : null}
         <textarea
           ref={textareaRef}
           className="ai-chat-textarea"
-          placeholder="Describe the module or add extra testing guidance for the uploaded screenshots"
+          placeholder={placeholder}
           value={composer}
           rows={1}
           onChange={(event) => onComposerChange(event.target.value)}
@@ -662,7 +869,7 @@ function AIChatComposer({
         </button>
       </div>
       <p className="ai-chat-compose__note">{helperText}</p>
-      <input ref={fileInputRef} type="file" accept="image/png,image/jpeg,image/webp,image/gif" multiple hidden onChange={handleFileChange} />
+      {allowAttachments ? <input ref={fileInputRef} type="file" accept="image/png,image/jpeg,image/webp,image/gif" multiple hidden onChange={handleFileChange} /> : null}
     </div>
   )
 }
@@ -680,6 +887,7 @@ function AIChatLandingView({
   const { openDrawer } = useOutletContext<AppShellOutletContext>()
   const [threads, setThreads] = useState<AIChatThreadSummary[]>([])
   const [threadDetails, setThreadDetails] = useState<Record<number, AIChatThread>>({})
+  const [sourceChooserOpen, setSourceChooserOpen] = useState(false)
   const [searchValue, setSearchValue] = useState('')
   const [projectFilter, setProjectFilter] = useState('all')
   const [loading, setLoading] = useState(true)
@@ -808,7 +1016,7 @@ function AIChatLandingView({
         actions={
           <>
             <ThemeToggle />
-            <button type="button" className="button button--primary button--tiny" onClick={() => navigate('/app/ai-chat/new')}>
+            <button type="button" className="button button--primary button--tiny" onClick={() => setSourceChooserOpen(true)}>
               New chat
             </button>
           </>
@@ -864,6 +1072,15 @@ function AIChatLandingView({
           </section>
         )}
       </div>
+      <AIChatSourceChooser
+        bootstrap={bootstrap}
+        open={sourceChooserOpen}
+        onClose={() => setSourceChooserOpen(false)}
+        onSelect={(sourceMode) => {
+          setSourceChooserOpen(false)
+          navigate(buildNewChatRoute(sourceMode))
+        }}
+      />
     </div>
   )
 }
@@ -880,20 +1097,50 @@ function AIChatCreateView({
   const navigate = useNavigate()
   const [searchParams] = useSearchParams()
   const editThreadId = normalizePositiveInt(searchParams.get('threadId'))
+  const querySourceMode = normalizeSourceMode(searchParams.get('source'), 'screenshot')
   const queryStep = clampStep(normalizePositiveInt(searchParams.get('step')) ?? 1)
+  const initialSourceMode = getSourceModeAvailability(bootstrap, querySourceMode).enabled
+    ? querySourceMode
+    : getSourceModeAvailability(bootstrap, 'link').enabled
+      ? 'link'
+      : 'screenshot'
   const [projects, setProjects] = useState<ProjectSummary[]>([])
   const [availableBatches, setAvailableBatches] = useState<ChecklistBatch[]>([])
   const [editingThread, setEditingThread] = useState<AIChatThread | null>(null)
-  const [draftForm, setDraftForm] = useState<DraftFormState>(emptyDraftForm)
+  const [draftForm, setDraftForm] = useState<DraftFormState>(() => createEmptyDraftForm(initialSourceMode))
   const [step, setStep] = useState<FlowStep>(queryStep)
   const [composer, setComposer] = useState('')
   const [attachments, setAttachments] = useState<File[]>([])
   const [summaryExpanded, setSummaryExpanded] = useState(true)
+  const [sourceChooserOpen, setSourceChooserOpen] = useState(false)
+  const [pageLinkPreview, setPageLinkPreview] = useState<AIChatPageLinkPreview | null>(null)
+  const [previewPending, setPreviewPending] = useState(false)
+  const [basicAuthUsername, setBasicAuthUsername] = useState('')
+  const [basicAuthPassword, setBasicAuthPassword] = useState('')
   const [loadingProjects, setLoadingProjects] = useState(true)
   const [loadingBatches, setLoadingBatches] = useState(false)
   const [loadingThread, setLoadingThread] = useState(Boolean(editThreadId))
   const [error, setError] = useState('')
   const [pending, setPending] = useState(false)
+
+  const selectedProject = useMemo(() => projects.find((project) => project.id === draftForm.projectId) ?? null, [draftForm.projectId, projects])
+  const selectedExistingBatch = useMemo(
+    () => availableBatches.find((batch) => batch.id === draftForm.existingBatchId) ?? null,
+    [availableBatches, draftForm.existingBatchId],
+  )
+  const summary = useMemo(
+    () => buildSummaryRows(draftForm, projects, selectedExistingBatch, editingThread?.draft_context),
+    [draftForm, editingThread?.draft_context, projects, selectedExistingBatch],
+  )
+  const contextLocked = Boolean(editingThread?.draft_context.is_locked)
+  const contextChanged = Boolean(editingThread && !formMatchesContext(draftForm, editingThread.draft_context))
+  const sourceAvailability = getSourceModeAvailability(bootstrap, draftForm.sourceMode)
+  const canSend = Boolean(
+    bootstrap.enabled &&
+    sourceAvailability.enabled &&
+    !pending &&
+    (!sourceModeRequiresAttachments(draftForm.sourceMode) || attachments.length > 0),
+  )
 
   useEffect(() => {
     let ignore = false
@@ -948,6 +1195,7 @@ function AIChatCreateView({
 
         setEditingThread(result.thread)
         setDraftForm(draftContextToForm(result.thread.draft_context))
+        setPageLinkPreview(previewFromDraftContext(result.thread.draft_context))
         setStep(queryStep)
         setError('')
       } catch (loadError) {
@@ -967,6 +1215,20 @@ function AIChatCreateView({
       ignore = true
     }
   }, [accessToken, activeOrgId, editThreadId, navigate, queryStep])
+
+  useEffect(() => {
+    if (editThreadId) {
+      return
+    }
+
+    setStep(queryStep)
+    setDraftForm((current) => {
+      if (current.sourceMode === initialSourceMode) {
+        return current
+      }
+      return { ...current, sourceMode: initialSourceMode }
+    })
+  }, [editThreadId, initialSourceMode, queryStep])
 
   useEffect(() => {
     if (draftForm.projectId <= 0) {
@@ -1003,19 +1265,46 @@ function AIChatCreateView({
     }
   }, [accessToken, activeOrgId, draftForm.projectId])
 
-  const selectedProject = useMemo(() => projects.find((project) => project.id === draftForm.projectId) ?? null, [draftForm.projectId, projects])
-  const selectedExistingBatch = useMemo(
-    () => availableBatches.find((batch) => batch.id === draftForm.existingBatchId) ?? null,
-    [availableBatches, draftForm.existingBatchId],
-  )
-  const summary = useMemo(
-    () => buildSummaryRows(draftForm, projects, selectedExistingBatch, editingThread?.draft_context),
-    [draftForm, editingThread?.draft_context, projects, selectedExistingBatch],
-  )
+  useEffect(() => {
+    if (draftForm.sourceMode !== 'link' || !attachments.length) {
+      return
+    }
+    setAttachments([])
+  }, [attachments.length, draftForm.sourceMode])
 
-  const contextLocked = Boolean(editingThread?.draft_context.is_locked)
-  const contextChanged = Boolean(editingThread && !formMatchesContext(draftForm, editingThread.draft_context))
-  const canSend = Boolean(bootstrap.enabled && !pending && attachments.length > 0)
+  useEffect(() => {
+    if (draftForm.targetMode !== 'existing' || !selectedExistingBatch?.page_url || draftForm.pageUrl.trim()) {
+      return
+    }
+
+    setDraftForm((current) => {
+      if (current.targetMode !== 'existing' || current.pageUrl.trim()) {
+        return current
+      }
+      return { ...current, pageUrl: selectedExistingBatch.page_url || '' }
+    })
+  }, [draftForm.pageUrl, draftForm.targetMode, selectedExistingBatch?.page_url])
+
+  useEffect(() => {
+    const contextPreview = previewFromDraftContext(editingThread?.draft_context)
+    if (!contextPreview || contextPreview.page_url !== draftForm.pageUrl.trim()) {
+      return
+    }
+    setPageLinkPreview(contextPreview)
+  }, [
+    draftForm.pageUrl,
+    editingThread?.draft_context.has_saved_link_credentials,
+    editingThread?.draft_context.page_link_status,
+    editingThread?.draft_context.page_link_warning,
+    editingThread?.draft_context.page_url,
+  ])
+
+  useEffect(() => {
+    if (!pageLinkPreview || pageLinkPreview.page_url === draftForm.pageUrl.trim()) {
+      return
+    }
+    setPageLinkPreview(null)
+  }, [draftForm.pageUrl, pageLinkPreview])
 
   const handleBack = () => {
     if (step === 1) {
@@ -1026,10 +1315,16 @@ function AIChatCreateView({
   }
 
   const validateStep = (currentStep: FlowStep) => {
-    if (currentStep === 1 && draftForm.projectId <= 0) {
+    if (!sourceAvailability.enabled) {
+      return sourceAvailability.warning || 'This source mode is not currently available.'
+    }
+    if (currentStep === 1 && !isValidPageUrl(draftForm.pageUrl.trim())) {
+      return 'Enter a valid page link before continuing.'
+    }
+    if (currentStep === 2 && draftForm.projectId <= 0) {
       return 'Select a project before continuing.'
     }
-    if (currentStep === 2) {
+    if (currentStep === 3) {
       if (draftForm.targetMode === 'existing' && draftForm.existingBatchId <= 0) {
         return loadingBatches ? 'Wait until checklist batches finish loading.' : 'Select an existing batch or choose New batch.'
       }
@@ -1037,31 +1332,33 @@ function AIChatCreateView({
         return 'Enter a batch title before continuing.'
       }
     }
-    if (currentStep === 3 && draftForm.targetMode === 'new' && !draftForm.moduleName.trim()) {
+    if (currentStep === 4 && draftForm.targetMode === 'new' && !draftForm.moduleName.trim()) {
       return 'Enter a module name before continuing.'
-    }
-    if (currentStep === 4 && draftForm.targetMode === 'new' && !isValidPageUrl(draftForm.pageUrl.trim())) {
-      return 'Enter a valid page link before continuing.'
     }
     return ''
   }
 
-  const handleNext = () => {
-    const validationError = validateStep(step)
-    if (validationError) {
-      setError(validationError)
+  const handleSelectSourceMode = (sourceMode: AIChatSourceMode) => {
+    const nextAvailability = getSourceModeAvailability(bootstrap, sourceMode)
+    if (!nextAvailability.enabled) {
+      setError(nextAvailability.warning || 'This source mode is not available right now.')
+      return
+    }
+    if (
+      sourceMode === 'link' &&
+      draftForm.sourceMode !== 'link' &&
+      attachments.length > 0 &&
+      !window.confirm('Switching to Via link will clear the uploaded screenshots for this draft. Continue?')
+    ) {
       return
     }
 
-    setError('')
-    setSummaryExpanded(true)
-    setStep((current) => clampStep(current + 1))
-  }
-
-  const handleEditStep = (targetStep: Exclude<FlowStep, 5>) => {
-    if (!contextLocked) {
-      setStep(targetStep)
+    setDraftForm((current) => ({ ...current, sourceMode }))
+    if (sourceMode === 'link') {
+      setAttachments([])
     }
+    setSourceChooserOpen(false)
+    setError('')
   }
 
   const ensureThread = async () => {
@@ -1079,12 +1376,87 @@ function AIChatCreateView({
     const { threadId, thread } = await ensureThread()
 
     if (formMatchesContext(draftForm, thread.draft_context)) {
+      const existingPreview = previewFromDraftContext(thread.draft_context)
+      if (existingPreview && existingPreview.page_url === payload.page_url) {
+        setPageLinkPreview(existingPreview)
+      }
       return { threadId, thread }
     }
 
     const result = await updateAIChatDraftContext(accessToken, activeOrgId, threadId, payload)
     setEditingThread(result.thread)
+    const syncedPreview = previewFromDraftContext(result.thread.draft_context)
+    if (syncedPreview && syncedPreview.page_url === payload.page_url) {
+      setPageLinkPreview(syncedPreview)
+    }
     return { threadId, thread: result.thread }
+  }
+
+  const ensurePageLinkPreview = async () => {
+    const trimmedPageUrl = draftForm.pageUrl.trim()
+    if (!isValidPageUrl(trimmedPageUrl)) {
+      setError('Enter a valid page link before continuing.')
+      return null
+    }
+    if (!sourceAvailability.enabled) {
+      setError(sourceAvailability.warning || 'This source mode is not currently available.')
+      return null
+    }
+
+    setPreviewPending(true)
+    setError('')
+
+    try {
+      const { threadId } = await ensureThread()
+      const result = await previewAIChatPageLink(accessToken, activeOrgId, threadId, {
+        page_url: trimmedPageUrl,
+        basic_auth_username: basicAuthUsername.trim() || undefined,
+        basic_auth_password: basicAuthPassword || undefined,
+      })
+      setEditingThread(result.thread)
+      setPageLinkPreview(result.page_link_preview)
+      return result.page_link_preview
+    } catch (previewError) {
+      setError(getErrorMessage(previewError, 'Unable to validate this page link right now.'))
+      return null
+    } finally {
+      setPreviewPending(false)
+    }
+  }
+
+  const handleNext = async () => {
+    const validationError = validateStep(step)
+    if (validationError) {
+      setError(validationError)
+      return
+    }
+
+    try {
+      if (step === 1) {
+        const preview = await ensurePageLinkPreview()
+        if (!preview) {
+          return
+        }
+        if (!isPreviewAcceptedForLink(preview.status)) {
+          setError(preview.warning_message || 'Fix the page link before continuing.')
+          return
+        }
+      } else {
+        await syncThreadContext()
+      }
+
+      setError('')
+      setSummaryExpanded(true)
+      setStep((current) => clampStep(current + 1))
+    } catch (stepError) {
+      setError(getErrorMessage(stepError, 'Unable to save the draft target right now.'))
+    }
+  }
+
+  const handleEditStep = (targetStep: Exclude<FlowStep, 5>) => {
+    if (!contextLocked) {
+      setStep(targetStep)
+    }
   }
 
   const handleSend = async () => {
@@ -1093,7 +1465,16 @@ function AIChatCreateView({
       setError(validationError)
       return
     }
-    if (!attachments.length) {
+
+    let preview = pageLinkPreview && pageLinkPreview.page_url === draftForm.pageUrl.trim() ? pageLinkPreview : null
+    if (!preview || !isPreviewAcceptedForLink(preview.status)) {
+      preview = await ensurePageLinkPreview()
+    }
+    if (!preview || !isPreviewAcceptedForLink(preview.status)) {
+      setError(preview?.warning_message || 'Validate the page link before drafting checklist items.')
+      return
+    }
+    if (sourceModeRequiresAttachments(draftForm.sourceMode) && !attachments.length) {
       setError('Upload at least one image before generating checklist draft items.')
       return
     }
@@ -1106,7 +1487,14 @@ function AIChatCreateView({
       const result = await createChecklistDraft(accessToken, activeOrgId, threadId, composer.trim(), attachments)
       navigate(`/app/ai-chat/threads/${result.thread.id}`, { replace: true })
     } catch (sendError) {
-      setError(getErrorMessage(sendError, 'Unable to draft checklist items from the uploaded module screenshots.'))
+      setError(
+        getErrorMessage(
+          sendError,
+          draftForm.sourceMode === 'link'
+            ? 'Unable to draft checklist items from the saved page link.'
+            : 'Unable to draft checklist items from the uploaded screenshots and page link.',
+        ),
+      )
     } finally {
       setPending(false)
     }
@@ -1114,11 +1502,89 @@ function AIChatCreateView({
 
   const existingModuleName = selectedExistingBatch?.module_name || editingThread?.draft_context.module_name || ''
   const existingSubmoduleName = selectedExistingBatch?.submodule_name || editingThread?.draft_context.submodule_name || ''
-  const existingPageUrl = selectedExistingBatch?.page_url || editingThread?.draft_context.page_url || ''
 
   const renderStep = () => {
     switch (step) {
       case 1:
+        return (
+          <section className="ai-chat-flow-card">
+            <div className="ai-chat-flow-card__header">
+              <h2>Page link</h2>
+              <p>Paste the exact page BugCatcher should connect to this checklist draft.</p>
+            </div>
+            <div className="ai-chat-source-banner">
+              <div className="ai-chat-source-banner__copy">
+                <span className="pill ai-chat-source-pill">{sourceModeLabel(draftForm.sourceMode)}</span>
+                <small>
+                  {draftForm.sourceMode === 'link'
+                    ? 'BugCatcher will analyze this page link directly. Screenshots are not required.'
+                    : 'BugCatcher will use this page link together with your uploaded screenshots in chat.'}
+                </small>
+              </div>
+              <button type="button" className="button button--ghost button--tiny" onClick={() => setSourceChooserOpen(true)}>
+                Change source
+              </button>
+            </div>
+            {!sourceAvailability.enabled && sourceAvailability.warning ? <FormMessage tone="error">{sourceAvailability.warning}</FormMessage> : null}
+            <div className="inline-form ai-chat-link-step__inputs">
+              <input
+                className="input-inline"
+                value={draftForm.pageUrl}
+                onChange={(event) => {
+                  setDraftForm((current) => ({ ...current, pageUrl: event.target.value }))
+                  setError('')
+                }}
+                placeholder="https://..."
+                inputMode="url"
+              />
+              <button type="button" className="button button--ghost" onClick={() => void ensurePageLinkPreview()} disabled={previewPending || !draftForm.pageUrl.trim()}>
+                {previewPending ? 'Checking...' : 'Check link'}
+              </button>
+            </div>
+            {pageLinkPreview ? (
+              <div className={`ai-chat-link-preview ai-chat-link-preview--${previewTone(pageLinkPreview.status)}`}>
+                <div className="ai-chat-link-preview__top">
+                  <strong>{formatPreviewStatusLabel(pageLinkPreview.status)}</strong>
+                  {pageLinkPreview.page_title ? <span>{pageLinkPreview.page_title}</span> : null}
+                </div>
+                {pageLinkPreview.warning_message ? <p>{pageLinkPreview.warning_message}</p> : null}
+                {pageLinkPreview.excerpt ? <p className="ai-chat-link-preview__excerpt">{pageLinkPreview.excerpt}</p> : null}
+              </div>
+            ) : (
+              <div className="ai-chat-inline-note ai-chat-inline-note--info">
+                Check the link now so BugCatcher can detect auth walls before you finish the draft setup.
+              </div>
+            )}
+            {pageLinkPreview?.status === 'auth_required_basic' ? (
+              <div className="ai-chat-link-auth">
+                <div className="ai-chat-link-auth__copy">
+                  <strong>HTTP Basic Auth required</strong>
+                  <p>Enter the credentials for this page, then check the link again.</p>
+                </div>
+                <div className="inline-form">
+                  <input
+                    className="input-inline"
+                    value={basicAuthUsername}
+                    onChange={(event) => setBasicAuthUsername(event.target.value)}
+                    placeholder="Username"
+                    autoComplete="username"
+                  />
+                  <input
+                    className="input-inline"
+                    value={basicAuthPassword}
+                    onChange={(event) => setBasicAuthPassword(event.target.value)}
+                    placeholder="Password"
+                    type="password"
+                    autoComplete="current-password"
+                  />
+                </div>
+                {pageLinkPreview.credentials_saved ? <small>Saved credentials were found for this thread. Leave the password blank to reuse them.</small> : null}
+              </div>
+            ) : null}
+            {editingThread?.draft_context.page_link_warning ? <FormMessage tone="info">{editingThread.draft_context.page_link_warning}</FormMessage> : null}
+          </section>
+        )
+      case 2:
         return (
           <section className="ai-chat-flow-card">
             <div className="ai-chat-flow-card__header">
@@ -1148,7 +1614,7 @@ function AIChatCreateView({
             </div>
           </section>
         )
-      case 2:
+      case 3:
         return (
           <section className="ai-chat-flow-card">
             <div className="ai-chat-flow-card__header">
@@ -1160,7 +1626,7 @@ function AIChatCreateView({
                 type="button"
                 className={`ai-chat-choice-card ${draftForm.targetMode === 'new' ? 'is-selected' : ''}`}
                 onClick={() => {
-                  setDraftForm((current) => ({ ...current, targetMode: 'new' }))
+                  setDraftForm((current) => ({ ...current, targetMode: 'new', existingBatchId: 0 }))
                   setError('')
                 }}
               >
@@ -1179,7 +1645,15 @@ function AIChatCreateView({
                   type="button"
                   className={`ai-chat-choice-card ${draftForm.targetMode === 'existing' && draftForm.existingBatchId === batch.id ? 'is-selected' : ''}`}
                   onClick={() => {
-                    setDraftForm((current) => ({ ...current, targetMode: 'existing', existingBatchId: batch.id }))
+                    setDraftForm((current) => ({
+                      ...current,
+                      targetMode: 'existing',
+                      existingBatchId: batch.id,
+                      pageUrl:
+                        current.targetMode === 'existing' && current.existingBatchId === batch.id
+                          ? current.pageUrl
+                          : batch.page_url || current.pageUrl,
+                    }))
                     setError('')
                   }}
                 >
@@ -1206,14 +1680,15 @@ function AIChatCreateView({
             ) : (
               <p className="body-copy">Existing batch mode will reuse the selected batch details in steps 3 and 4.</p>
             )}
+            {editingThread?.draft_context.page_link_warning ? <FormMessage tone="info">{editingThread.draft_context.page_link_warning}</FormMessage> : null}
           </section>
         )
-      case 3:
+      case 4:
         return (
           <section className="ai-chat-flow-card">
             <div className="ai-chat-flow-card__header">
               <h2>Module</h2>
-              <p>Confirm the module and optional submodule that the screenshots belong to.</p>
+              <p>Confirm the module and optional submodule that this checklist draft belongs to.</p>
             </div>
             {draftForm.targetMode === 'new' ? (
               <div className="inline-form">
@@ -1232,30 +1707,8 @@ function AIChatCreateView({
                 </div>
               </div>
             )}
-          </section>
-        )
-      case 4:
-        return (
-          <section className="ai-chat-flow-card">
-            <div className="ai-chat-flow-card__header">
-              <h2>Website page link</h2>
-              <p>Connect this draft to the exact page or screen the screenshots came from.</p>
-            </div>
-            {draftForm.targetMode === 'new' ? (
-              <div className="inline-form">
-                <input className="input-inline" value={draftForm.pageUrl} onChange={(event) => setDraftForm((current) => ({ ...current, pageUrl: event.target.value }))} placeholder="https://..." inputMode="url" />
-              </div>
-            ) : (
-              <div className="ai-chat-readonly-stack">
-                <div className="ai-chat-readonly-card">
-                  <span>Saved page link</span>
-                  <strong>{existingPageUrl || 'This existing batch does not have a saved page link yet.'}</strong>
-                </div>
-                {existingPageUrl ? <a className="inline-link" href={existingPageUrl} target="_blank" rel="noreferrer noopener">Open saved page link</a> : null}
-              </div>
-            )}
             <div className="ai-chat-inline-note ai-chat-inline-note--info">
-              Each approved AI card is inserted immediately into the real checklist under this connected project target.
+              Approved checklist items will keep the page link from step 1 for future QA testing.
             </div>
           </section>
         )
@@ -1263,6 +1716,7 @@ function AIChatCreateView({
         return (
           <div className="ai-chat-thread-stage">
             {contextChanged ? <FormMessage tone="info">Your edited target summary will be saved with the next draft request.</FormMessage> : null}
+            {editingThread?.draft_context.page_link_warning ? <FormMessage tone="info">{editingThread.draft_context.page_link_warning}</FormMessage> : null}
             <AIChatSummaryCard modeLabel={summary.modeLabel} rows={summary.rows} expanded={summaryExpanded} locked={contextLocked} onToggle={() => setSummaryExpanded((current) => !current)} onEditStep={handleEditStep} />
             {editingThread?.messages.length ? (
               <section className="ai-chat-thread-stage__conversation">
@@ -1270,12 +1724,14 @@ function AIChatCreateView({
               </section>
             ) : null}
             <AIChatComposer
+              sourceMode={draftForm.sourceMode}
               composer={composer}
               attachments={attachments}
               pending={pending}
               canSend={canSend}
               disabled={pending}
-              helperText="At least one image is required for each draft request."
+              helperText={sourceModeComposerHelperText(draftForm.sourceMode, true)}
+              placeholder={sourceModeComposerPlaceholder(draftForm.sourceMode)}
               onComposerChange={setComposer}
               onAttachmentsChange={setAttachments}
               onSend={() => void handleSend()}
@@ -1308,7 +1764,7 @@ function AIChatCreateView({
                 <button type="button" className="button button--ghost" onClick={handleBack}>
                   {step === 1 ? 'Back to history' : 'Back'}
                 </button>
-                <button type="button" className="button button--primary" onClick={handleNext}>
+                <button type="button" className="button button--primary" onClick={() => void handleNext()} disabled={previewPending}>
                   {step === 4 ? 'Continue to chat' : 'Next'}
                 </button>
               </div>
@@ -1316,6 +1772,12 @@ function AIChatCreateView({
           </>
         )}
       </div>
+      <AIChatSourceChooser
+        bootstrap={bootstrap}
+        open={sourceChooserOpen}
+        onClose={() => setSourceChooserOpen(false)}
+        onSelect={handleSelectSourceMode}
+      />
     </div>
   )
 }
@@ -1336,6 +1798,7 @@ function AIChatThreadView({
   const [activeThread, setActiveThread] = useState<AIChatThread | null>(null)
   const [composer, setComposer] = useState('')
   const [attachments, setAttachments] = useState<File[]>([])
+  const [sourceChooserOpen, setSourceChooserOpen] = useState(false)
   const [activeThreadTab, setActiveThreadTab] = useState<ThreadViewTab>('chat')
   const [railOpen, setRailOpen] = useState(false)
   const [loadingThreads, setLoadingThreads] = useState(true)
@@ -1414,8 +1877,22 @@ function AIChatThreadView({
     setActiveThreadTab('chat')
   }, [activeThreadId])
 
+  const activeSourceMode = normalizeSourceMode(activeThread?.draft_context.source_mode, 'screenshot')
+  const requiresAttachments = sourceModeRequiresAttachments(activeSourceMode)
   const summary = useMemo(() => buildSummaryRows(draftContextToForm(activeThread?.draft_context), [], null, activeThread?.draft_context), [activeThread?.draft_context])
-  const canSend = Boolean(bootstrap.enabled && activeThread?.draft_context.is_ready && !pending && attachments.length > 0)
+  const canSend = Boolean(
+    bootstrap.enabled &&
+    activeThread?.draft_context.is_ready &&
+    !pending &&
+    (!requiresAttachments || attachments.length > 0),
+  )
+
+  useEffect(() => {
+    if (requiresAttachments || !attachments.length) {
+      return
+    }
+    setAttachments([])
+  }, [attachments.length, requiresAttachments])
 
   const refreshThreads = async () => {
     const result = await fetchAIChatThreads(accessToken, activeOrgId)
@@ -1451,7 +1928,7 @@ function AIChatThreadView({
       setError('Edit the checklist target before drafting more items.')
       return
     }
-    if (!attachments.length) {
+    if (requiresAttachments && !attachments.length) {
       setError('Upload at least one image before generating checklist draft items.')
       return
     }
@@ -1467,7 +1944,14 @@ function AIChatThreadView({
       setAttachments([])
       await refreshThreads()
     } catch (sendError) {
-      setError(getErrorMessage(sendError, 'Unable to draft checklist items from the uploaded module screenshots.'))
+      setError(
+        getErrorMessage(
+          sendError,
+          activeSourceMode === 'link'
+            ? 'Unable to draft checklist items from the saved page link.'
+            : 'Unable to draft checklist items from the uploaded screenshots and page link.',
+        ),
+      )
     } finally {
       setPending(false)
     }
@@ -1527,7 +2011,7 @@ function AIChatThreadView({
               <p className="eyebrow">Recent chats</p>
               <h2>History</h2>
             </div>
-            <button type="button" className="button button--primary button--tiny" onClick={() => navigate('/app/ai-chat/new')}>
+            <button type="button" className="button button--primary button--tiny" onClick={() => setSourceChooserOpen(true)}>
               New chat
             </button>
           </div>
@@ -1600,18 +2084,24 @@ function AIChatThreadView({
                     thread={activeThread}
                     assistantName={bootstrap.assistant_name || 'BugCatcher AI'}
                     emptyTitle="No conversation yet"
-                    emptyMessage="This chat is ready for your first screenshot-based checklist draft."
+                    emptyMessage={
+                      activeSourceMode === 'link'
+                        ? 'This chat is ready for a link-based checklist draft.'
+                        : 'This chat is ready for your first screenshot-based checklist draft.'
+                    }
                     pendingItemId={pendingItemId}
                     onReviewAction={(item, action) => void handleReviewAction(item, action)}
                   />
                 </section>
                 <AIChatComposer
+                  sourceMode={activeSourceMode}
                   composer={composer}
                   attachments={attachments}
                   pending={pending}
                   canSend={canSend}
                   disabled={pending || !activeThread.draft_context.is_ready}
-                  helperText={activeThread.draft_context.is_ready ? 'At least one image is required for each new checklist draft request.' : 'Edit the checklist target before drafting new checklist items.'}
+                  helperText={sourceModeComposerHelperText(activeSourceMode, Boolean(activeThread.draft_context.is_ready))}
+                  placeholder={sourceModeComposerPlaceholder(activeSourceMode)}
                   onComposerChange={setComposer}
                   onAttachmentsChange={setAttachments}
                   onSend={() => void handleSend()}
@@ -1626,6 +2116,16 @@ function AIChatThreadView({
           </section>
         )}
       </div>
+      <AIChatSourceChooser
+        bootstrap={bootstrap}
+        open={sourceChooserOpen}
+        onClose={() => setSourceChooserOpen(false)}
+        onSelect={(sourceMode) => {
+          setSourceChooserOpen(false)
+          setRailOpen(false)
+          navigate(buildNewChatRoute(sourceMode))
+        }}
+      />
     </div>
   )
 }
@@ -1699,7 +2199,7 @@ export function AIChatPage({ view = 'landing' }: { view?: AIChatPageView }) {
           </div>
           <div className="bullet-row">
             <span className="bullet-row__marker" />
-            <p>Choose a vision-capable model because this page works from module screenshots.</p>
+            <p>Enable a text-capable generator for link mode, and add a vision-capable generator if you also want screenshot mode.</p>
           </div>
         </div>
       </AIChatStateScreen>
