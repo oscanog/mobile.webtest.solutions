@@ -184,6 +184,12 @@ export type AIChatDraftStreamEvent =
       source_mode?: AIChatSourceMode
     }
   | {
+      event: 'progress'
+      planned_count?: number | null
+      coverage_summary?: string
+      source_mode?: AIChatSourceMode
+    }
+  | {
       event: 'reasoning_delta'
       delta: string
       source_mode?: AIChatSourceMode
@@ -195,6 +201,7 @@ export type AIChatDraftStreamEvent =
       assistant_message_id: number
       thread: AIChatThread | null
       reused?: boolean
+      final_count?: number | null
     }
   | {
       event: 'error'

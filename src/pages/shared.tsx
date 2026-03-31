@@ -6,10 +6,12 @@ export function FormMessage({
   id,
   tone,
   children,
+  onDismiss,
 }: {
   id?: string
   tone: 'error' | 'success' | 'info'
   children: string
+  onDismiss?: () => void
 }) {
   return (
     <div
@@ -18,7 +20,12 @@ export function FormMessage({
       role={tone === 'error' ? 'alert' : 'status'}
       aria-live={tone === 'error' ? 'assertive' : 'polite'}
     >
-      {children}
+      <span className="form-message__content">{children}</span>
+      {onDismiss ? (
+        <button type="button" className="form-message__dismiss" aria-label="Close message" onClick={onDismiss}>
+          x
+        </button>
+      ) : null}
     </div>
   )
 }

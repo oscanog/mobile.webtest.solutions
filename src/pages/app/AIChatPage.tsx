@@ -1,4 +1,4 @@
-import { useDeferredValue, useEffect, useMemo, useRef, useState, type ChangeEvent, type KeyboardEvent, type ReactNode } from 'react'
+import { useDeferredValue, useEffect, useMemo, useRef, useState, type ChangeEvent, type KeyboardEvent, type ReactNode, type RefObject } from 'react'
 import { Link, useLocation, useNavigate, useOutletContext, useParams, useSearchParams } from 'react-router-dom'
 import { useAuth } from '../../auth-context'
 import { AppTopBar, type AppShellOutletContext } from '../../components/layout'
@@ -75,6 +75,9 @@ type AIChatTransientDraft = {
   userMessageId?: number
   assistantName?: string
   errorMessage?: string
+  plannedCount?: number
+  finalCount?: number
+  coverageSummary?: string
 }
 
 type ThreadRouteDraftStart = {
@@ -315,6 +318,40 @@ function mapDraftStageLabel(sourceMode: AIChatSourceMode, stage: AIChatDraftStre
   }
 
   return labels[stage]
+}
+
+function AnimatedDots({ className = '' }: { className?: string }) {
+  return (
+    <span className={`ai-chat-animated-dots ${className}`.trim()} aria-hidden="true">
+      <span>.</span>
+      <span>.</span>
+      <span>.</span>
+    </span>
+  )
+}
+
+function renderStageLabel(sourceMode: AIChatSourceMode, stage: AIChatDraftStreamStage | 'preparing') {
+  const label = mapDraftStageLabel(sourceMode, stage)
+  if (stage !== 'drafting') {
+    return label
+  }
+
+  return (
+    <span className="ai-chat-live-status__label">
+      <span>{label}</span>
+      <AnimatedDots />
+    </span>
+  )
+}
+
+function buildLiveCountText(transientDraft: AIChatTransientDraft) {
+  if (typeof transientDraft.finalCount === 'number' && transientDraft.finalCount >= 0) {
+    return `Finalized ${transientDraft.finalCount} checklist item${transientDraft.finalCount === 1 ? '' : 's'}`
+  }
+  if (typeof transientDraft.plannedCount === 'number' && transientDraft.plannedCount > 0) {
+    return `Planning about ${transientDraft.plannedCount} checklist item${transientDraft.plannedCount === 1 ? '' : 's'}`
+  }
+  return ''
 }
 
 function draftContextToForm(context?: AIChatDraftContext | null): DraftFormState {
@@ -803,6 +840,7 @@ function AIChatConversation({
   emptyTitle,
   emptyMessage,
   transientDraft,
+  scrollContainerRef,
   pendingItemId,
   onReviewAction,
 }: {
@@ -811,19 +849,42 @@ function AIChatConversation({
   emptyTitle: string
   emptyMessage: string
   transientDraft?: AIChatTransientDraft | null
+  scrollContainerRef?: RefObject<HTMLDivElement | null>
   pendingItemId?: number | null
   onReviewAction?: (item: AIGeneratedChecklistItem, action: 'approve' | 'reject') => void
 }) {
   const listRef = useRef<HTMLDivElement | null>(null)
-  const messageCount = thread?.messages.length ?? 0
+  const conversationFootprint = useMemo(
+    () => (thread?.messages ?? []).map((messageItem) => [
+      messageItem.id,
+      messageItem.content.length,
+      messageItem.generated_checklist_items.length,
+      messageItem.generated_checklist_items.reduce((total, item) => total + item.title.length + item.description.length, 0),
+    ].join(':')).join('|'),
+    [thread?.messages],
+  )
 
   useEffect(() => {
-    const list = listRef.current
-    if (!list) {
+    const target = scrollContainerRef?.current ?? listRef.current
+    if (!target) {
       return
     }
-    list.scrollTop = list.scrollHeight
-  }, [messageCount, transientDraft?.reasoningText, transientDraft?.phase, transientDraft?.stage])
+    const syncScroll = () => {
+      target.scrollTop = target.scrollHeight
+    }
+    syncScroll()
+    const frame = window.requestAnimationFrame(syncScroll)
+    return () => window.cancelAnimationFrame(frame)
+  }, [
+    conversationFootprint,
+    scrollContainerRef,
+    transientDraft?.reasoningText,
+    transientDraft?.phase,
+    transientDraft?.stage,
+    transientDraft?.plannedCount,
+    transientDraft?.finalCount,
+    transientDraft?.coverageSummary,
+  ])
 
   if (!thread?.messages.length && !transientDraft) {
     return (
@@ -950,10 +1011,20 @@ function AIChatConversation({
               <span className="ai-chat-bubble__author">{transientDraft.assistantName || assistantName} | live</span>
               <div className="ai-chat-live-status">
                 <span className={`pill ai-chat-live-status__pill ai-chat-live-status__pill--${transientDraft.phase}`}>
-                  {mapDraftStageLabel(transientDraft.sourceMode, transientDraft.stage)}
+                  {renderStageLabel(transientDraft.sourceMode, transientDraft.stage)}
                 </span>
                 <span className="ai-chat-live-status__dot" aria-hidden="true" />
               </div>
+              {buildLiveCountText(transientDraft) ? (
+                <div className="ai-chat-live-meta">
+                  <strong>{buildLiveCountText(transientDraft)}</strong>
+                  {transientDraft.coverageSummary ? <p>{transientDraft.coverageSummary}</p> : null}
+                </div>
+              ) : transientDraft.coverageSummary ? (
+                <div className="ai-chat-live-meta">
+                  <p>{transientDraft.coverageSummary}</p>
+                </div>
+              ) : null}
               {transientDraft.reasoningText ? (
                 renderFormattedText(transientDraft.reasoningText, 'ai-chat-live-reasoning', 'ai-chat-live-reasoning__block')
               ) : (
@@ -1062,7 +1133,12 @@ function AIChatComposer({
           disabled={disabled}
         />
         <button type="button" className="button button--primary ai-chat-send" disabled={!canSend} onClick={onSend}>
-          {pending ? 'Drafting...' : 'Draft'}
+          {pending ? (
+            <span className="ai-chat-send__label">
+              <span>Drafting</span>
+              <AnimatedDots />
+            </span>
+          ) : 'Draft'}
         </button>
       </div>
       <p className="ai-chat-compose__note">{helperText}</p>
@@ -1221,8 +1297,8 @@ function AIChatLandingView({
       />
 
       <div className="ai-chat-page__body">
-        {message ? <FormMessage tone="success">{message}</FormMessage> : null}
-        {error ? <FormMessage tone="error">{error}</FormMessage> : null}
+        {message ? <FormMessage tone="success" onDismiss={() => setMessage('')}>{message}</FormMessage> : null}
+        {error ? <FormMessage tone="error" onDismiss={() => setError('')}>{error}</FormMessage> : null}
 
         <section className="ai-chat-toolbar-card">
           <label className="ai-chat-search-field">
@@ -1962,7 +2038,7 @@ function AIChatCreateView({
       />
       <div className="ai-chat-page__body">
         <AIChatProgress currentStep={step} />
-        {error ? <FormMessage tone="error">{error}</FormMessage> : null}
+        {error ? <FormMessage tone="error" onDismiss={() => setError('')}>{error}</FormMessage> : null}
         {loadingProjects || loadingThread ? (
           <section className="ai-chat-state-card">
             <p className="body-copy">Loading create chat flow...</p>
@@ -2023,6 +2099,7 @@ function AIChatThreadView({
   const draftInFlightRef = useRef(false)
   const streamAbortRef = useRef<AbortController | null>(null)
   const consumedRouteDraftRef = useRef('')
+  const conversationScrollRef = useRef<HTMLDivElement | null>(null)
 
   useEffect(() => {
     let ignore = false
@@ -2198,6 +2275,15 @@ function AIChatThreadView({
                     }
                   : current))
                 break
+              case 'progress':
+                setTransientDraft((current) => (current && current.requestId === clientRequestId
+                  ? {
+                      ...current,
+                      plannedCount: typeof event.planned_count === 'number' ? event.planned_count : current.plannedCount,
+                      coverageSummary: event.coverage_summary?.trim() || current.coverageSummary,
+                    }
+                  : current))
+                break
               case 'reasoning_delta':
                 setTransientDraft((current) => (current && current.requestId === clientRequestId
                   ? {
@@ -2213,6 +2299,7 @@ function AIChatThreadView({
                   ? {
                       ...current,
                       phase: 'reconciling',
+                      finalCount: typeof event.final_count === 'number' ? event.final_count : current.finalCount,
                     }
                   : current))
                 break
@@ -2370,8 +2457,8 @@ function AIChatThreadView({
         }
       />
       <div className="ai-chat-page__body ai-chat-page__body--thread">
-        {message ? <FormMessage tone="success">{message}</FormMessage> : null}
-        {error ? <FormMessage tone="error">{error}</FormMessage> : null}
+        {message ? <FormMessage tone="success" onDismiss={() => setMessage('')}>{message}</FormMessage> : null}
+        {error ? <FormMessage tone="error" onDismiss={() => setError('')}>{error}</FormMessage> : null}
 
         <button type="button" className={`ai-chat-thread-drawer__backdrop ${railOpen ? 'is-open' : ''}`} aria-label="Close conversation history" onClick={() => setRailOpen(false)} />
 
@@ -2449,7 +2536,7 @@ function AIChatThreadView({
               </div>
             ) : (
               <div className="ai-chat-thread-stage__panel ai-chat-thread-stage__panel--chat">
-                <section className="ai-chat-thread-stage__conversation">
+                <section ref={conversationScrollRef} className="ai-chat-thread-stage__conversation">
                   <AIChatConversation
                     thread={activeThread}
                     assistantName={bootstrap.assistant_name || 'BugCatcher AI'}
@@ -2460,6 +2547,7 @@ function AIChatThreadView({
                         : 'This chat is ready for your first screenshot-based checklist draft.'
                     }
                     transientDraft={transientDraft}
+                    scrollContainerRef={conversationScrollRef}
                     pendingItemId={pendingItemId}
                     onReviewAction={(item, action) => void handleReviewAction(item, action)}
                   />
@@ -2555,7 +2643,7 @@ export function AIChatPage({ view = 'landing' }: { view?: AIChatPageView }) {
   if (error && !bootstrap) {
     return (
       <AIChatStateScreen title="AI Chat" subtitle="Checklist drafting assistant">
-        <FormMessage tone="error">{error}</FormMessage>
+        <FormMessage tone="error" onDismiss={() => setError('')}>{error}</FormMessage>
       </AIChatStateScreen>
     )
   }
