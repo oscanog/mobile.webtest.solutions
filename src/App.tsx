@@ -104,7 +104,9 @@ function App() {
                   <Route path="checklist/items/:itemId" element={<GuardedAppRoute path="/app/checklist/items"><ChecklistItemDetailPage /></GuardedAppRoute>} />
                   <Route path="checklist" element={<GuardedAppRoute path="/app/checklist"><ChecklistPage /></GuardedAppRoute>} />
                   <Route path="checklist/batches/:batchId" element={<GuardedAppRoute path="/app/checklist"><ChecklistBatchDetailPage /></GuardedAppRoute>} />
-                  <Route path="ai-chat" element={<GuardedAppRoute path="/app/ai-chat"><AIChatPage /></GuardedAppRoute>} />
+                  <Route path="ai-chat" element={<GuardedAppRoute path="/app/ai-chat"><AIChatPage view="landing" /></GuardedAppRoute>} />
+                  <Route path="ai-chat/new" element={<GuardedAppRoute path="/app/ai-chat"><AIChatPage view="create" /></GuardedAppRoute>} />
+                  <Route path="ai-chat/threads/:threadId" element={<GuardedAppRoute path="/app/ai-chat"><AIChatPage view="thread" /></GuardedAppRoute>} />
                   <Route path="settings" element={<GuardedAppRoute path="/app/settings"><SettingsPage /></GuardedAppRoute>} />
                 </Route>
                 <Route path="*" element={<Navigate to="/" replace />} />

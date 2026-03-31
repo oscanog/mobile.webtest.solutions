@@ -7,6 +7,38 @@ import { bottomNavItems, canAccessAiChat, findAppRoute, getSidebarItems } from '
 import { useTheme } from '../theme-context'
 import { BrandMark, Icon, ThemeToggle } from './ui'
 
+export interface AppShellOutletContext {
+  openDrawer: () => void
+}
+
+export function AppTopBar({
+  eyebrow,
+  title,
+  subtitle,
+  leading,
+  actions,
+}: {
+  eyebrow: string
+  title: string
+  subtitle?: string
+  leading?: ReactNode
+  actions?: ReactNode
+}) {
+  return (
+    <header className="top-bar">
+      <div className="top-bar__leading">{leading}</div>
+
+      <div className="top-bar__titles">
+        <p className="top-bar__eyebrow">{eyebrow}</p>
+        <h1>{title}</h1>
+        {subtitle ? <p>{subtitle}</p> : null}
+      </div>
+
+      <div className="top-bar__actions">{actions}</div>
+    </header>
+  )
+}
+
 export function AppViewport({ children }: { children: ReactNode }) {
   const { theme } = useTheme()
 
@@ -85,14 +117,6 @@ export function AppShell() {
   }, [session])
 
   useEffect(() => {
-    if (!isDrawerOpen) {
-      setIsOrgSwitcherOpen(false)
-      setOrgFilter('')
-      setIsSwitchingOrg(false)
-    }
-  }, [isDrawerOpen])
-
-  useEffect(() => {
     if (!isOrgSwitcherOpen) {
       return
     }
@@ -118,12 +142,19 @@ export function AppShell() {
     }
   }, [isOrgSwitcherOpen])
 
+  const closeDrawer = () => {
+    setIsDrawerOpen(false)
+    setIsOrgSwitcherOpen(false)
+    setOrgFilter('')
+    setIsSwitchingOrg(false)
+  }
+
   const handleSelectOrg = async (orgId: number) => {
     setIsSwitchingOrg(true)
     const result = await setActiveOrg(orgId)
     setIsSwitchingOrg(false)
     if (result.ok) {
-      setIsDrawerOpen(false)
+      closeDrawer()
     }
   }
 
@@ -132,7 +163,7 @@ export function AppShell() {
     const result = await selectAllOrganizations()
     setIsSwitchingOrg(false)
     if (result.ok) {
-      setIsDrawerOpen(false)
+      closeDrawer()
     }
   }
 
@@ -142,7 +173,7 @@ export function AppShell() {
         type="button"
         className={`drawer-backdrop ${isDrawerOpen ? 'is-open' : ''}`}
         aria-label="Close navigation drawer"
-        onClick={() => setIsDrawerOpen(false)}
+        onClick={closeDrawer}
       />
 
       <aside className={`side-drawer ${isDrawerOpen ? 'is-open' : ''}`} aria-hidden={!isDrawerOpen}>
@@ -249,7 +280,7 @@ export function AppShell() {
                 className="drawer-link drawer-link--button is-danger"
                 onClick={() => {
                   void logout()
-                  setIsDrawerOpen(false)
+                  closeDrawer()
                 }}
               >
                 <span className="icon-wrap">
@@ -261,7 +292,7 @@ export function AppShell() {
               <NavLink
                 key={item.to}
                 to={item.to}
-                onClick={() => setIsDrawerOpen(false)}
+                onClick={closeDrawer}
                 className={({ isActive }) => `drawer-link ${isActive ? 'is-active' : ''}`}
               >
                 <span className="icon-wrap">
@@ -274,38 +305,40 @@ export function AppShell() {
         </div>
       </aside>
 
-      <div className="app-shell__screen">
-        <header className="top-bar">
-          <button
-            type="button"
-            className="icon-button"
-            aria-label="Open navigation drawer"
-            onClick={() => setIsDrawerOpen(true)}
-          >
-            <Icon name="more" />
-          </button>
+      <div className={`app-shell__screen ${isAiChatRoute ? 'app-shell__screen--ai-chat' : ''}`}>
+        {!isAiChatRoute ? (
+          <AppTopBar
+            eyebrow={selectionLabel}
+            title={activeRoute.title}
+            subtitle={activeRoute.subtitle}
+            leading={
+              <button
+                type="button"
+                className="icon-button"
+                aria-label="Open navigation drawer"
+                onClick={() => setIsDrawerOpen(true)}
+              >
+                <Icon name="more" />
+              </button>
+            }
+            actions={
+              <>
+                <ThemeToggle />
+                <NavLink
+                  to="/app/notifications"
+                  className={({ isActive }) => `top-bar__chip top-bar__chip--icon ${isActive ? 'is-active' : ''}`}
+                  aria-label="Notifications"
+                >
+                  <Icon name="bell" />
+                  {unreadCount > 0 ? <span className="top-bar__badge">{unreadCount}</span> : null}
+                </NavLink>
+              </>
+            }
+          />
+        ) : null}
 
-          <div className="top-bar__titles">
-            <p className="top-bar__eyebrow">{selectionLabel}</p>
-            <h1>{activeRoute.title}</h1>
-            <p>{activeRoute.subtitle}</p>
-          </div>
-
-          <div className="top-bar__actions">
-            <ThemeToggle />
-            <NavLink
-              to="/app/notifications"
-              className={({ isActive }) => `top-bar__chip top-bar__chip--icon ${isActive ? 'is-active' : ''}`}
-              aria-label="Notifications"
-            >
-              <Icon name="bell" />
-              {unreadCount > 0 ? <span className="top-bar__badge">{unreadCount}</span> : null}
-            </NavLink>
-          </div>
-        </header>
-
-        <main className="page-scroll">
-          <Outlet />
+        <main className={`page-scroll ${isAiChatRoute ? 'page-scroll--ai-chat' : ''}`}>
+          <Outlet context={{ openDrawer: () => setIsDrawerOpen(true) } satisfies AppShellOutletContext} />
         </main>
 
         {showAiChatFab && !isAiChatRoute ? (

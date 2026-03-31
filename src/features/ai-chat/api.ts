@@ -107,6 +107,19 @@ export interface AIChatThread {
   messages: AIChatMessage[]
 }
 
+export type AIChatThreadSummary = Pick<
+  AIChatThread,
+  | 'id'
+  | 'title'
+  | 'created_at'
+  | 'created_at_iso'
+  | 'updated_at'
+  | 'updated_at_iso'
+  | 'last_message_at'
+  | 'last_message_at_iso'
+  | 'draft_context'
+>
+
 export interface DraftContextPayload {
   project_id: number
   target_mode: 'new' | 'existing'
@@ -162,7 +175,7 @@ export function fetchAIChatBootstrap(accessToken: string, orgId: number) {
 }
 
 export function fetchAIChatThreads(accessToken: string, orgId: number) {
-  return requestJson<{ threads: Array<Pick<AIChatThread, 'id' | 'title' | 'created_at' | 'updated_at' | 'last_message_at' | 'draft_context'>> }>(
+  return requestJson<{ threads: AIChatThreadSummary[] }>(
     withOrgQuery('/ai-chat/threads', orgId),
     { method: 'GET' },
     accessToken,
