@@ -1441,7 +1441,7 @@ function AIChatCreateView({
           setError(preview.warning_message || 'Fix the page link before continuing.')
           return
         }
-      } else {
+      } else if (step === 4) {
         await syncThreadContext()
       }
 
