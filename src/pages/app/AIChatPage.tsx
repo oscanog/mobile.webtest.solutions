@@ -627,12 +627,6 @@ function AIChatComposer({
 
   return (
     <div className="ai-chat-compose">
-      <div className="ai-chat-compose__toolbar">
-        <button type="button" className="button button--ghost button--tiny" onClick={() => fileInputRef.current?.click()} disabled={disabled}>
-          Add screenshots
-        </button>
-        <span>{helperText}</span>
-      </div>
       {attachments.length ? (
         <div className="ai-chat-selected-files">
           {attachments.map((file) => (
@@ -643,6 +637,16 @@ function AIChatComposer({
         </div>
       ) : null}
       <div className="ai-chat-compose__input">
+        <button
+          type="button"
+          className="ai-chat-compose__media-button"
+          onClick={() => fileInputRef.current?.click()}
+          disabled={disabled}
+          aria-label="Add screenshots"
+          title="Add screenshots"
+        >
+          <span aria-hidden="true">🖼️</span>
+        </button>
         <textarea
           ref={textareaRef}
           className="ai-chat-textarea"
@@ -657,6 +661,7 @@ function AIChatComposer({
           {pending ? 'Drafting...' : 'Draft'}
         </button>
       </div>
+      <p className="ai-chat-compose__note">{helperText}</p>
       <input ref={fileInputRef} type="file" accept="image/png,image/jpeg,image/webp,image/gif" multiple hidden onChange={handleFileChange} />
     </div>
   )
@@ -1558,19 +1563,21 @@ function AIChatThreadView({
                   type="button"
                   role="tab"
                   aria-selected={activeThreadTab === 'chat'}
+                  aria-label="Show chat"
                   className={`ai-chat-thread-stage__tab ${activeThreadTab === 'chat' ? 'is-active' : ''}`}
                   onClick={() => setActiveThreadTab('chat')}
                 >
-                  Chat
+                  <Icon name="chat" />
                 </button>
                 <button
                   type="button"
                   role="tab"
                   aria-selected={activeThreadTab === 'summary'}
+                  aria-label="Show summary"
                   className={`ai-chat-thread-stage__tab ${activeThreadTab === 'summary' ? 'is-active' : ''}`}
                   onClick={() => setActiveThreadTab('summary')}
                 >
-                  Summary
+                  <Icon name="checklist" />
                 </button>
               </div>
             </div>
