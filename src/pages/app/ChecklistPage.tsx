@@ -56,17 +56,14 @@ function initialsFromName(value: string) {
   return parts.map((part) => part.charAt(0).toUpperCase()).join('')
 }
 
-function batchSourceLabel(batch: ChecklistBatch) {
-  if (batch.source_mode === 'link') {
-    return 'AI Link'
+function compactPageLinkLabel(pageUrl: string) {
+  try {
+    const url = new URL(pageUrl)
+    const path = url.pathname === '/' ? '' : url.pathname
+    return `${url.hostname}${path}`.replace(/\/$/, '')
+  } catch {
+    return pageUrl.replace(/^https?:\/\//i, '')
   }
-  if (batch.source_mode === 'screenshot') {
-    return 'AI Screenshot'
-  }
-  if (batch.source_type === 'bot') {
-    return 'AI Batch'
-  }
-  return 'Manual'
 }
 
 function ChecklistSelectionMenu({
@@ -283,11 +280,6 @@ function BatchSummaryCard({
       completionPercent: counts.total > 0 ? Math.round((counts.done / counts.total) * 100) : 0,
     }
   }, [items])
-
-  const qaLeadName = batch.qa_lead_name || 'Unassigned'
-  const qaLeadSupport = batch.qa_lead_name
-    ? 'QA Lead owner'
-    : 'Choose a QA lead to keep ownership clear.'
   const metaLine = [batch.project_name, batch.module_name, batch.submodule_name || null].filter(Boolean).join(' | ')
 
   return (
@@ -295,10 +287,17 @@ function BatchSummaryCard({
       <div className="section-card__body checklist-batch-hero-card__body">
         <div className="checklist-batch-hero-card__header">
           <div className="checklist-batch-hero-card__copy">
-            <p className="eyebrow">Checklist batch</p>
+            <p className="eyebrow">{batch.org_name || 'Organization'}</p>
             <h2>{batch.title}</h2>
             <p className="checklist-batch-hero-card__meta-line">{metaLine}</p>
           </div>
+          <ChecklistBatchLeadBadge
+            batch={batch}
+            canManageBatch={canManageBatch}
+            isSavingBatchLead={isSavingBatchLead}
+            isBatchLeadMenuOpen={isBatchLeadMenuOpen}
+            onBatchLeadTrigger={onBatchLeadTrigger}
+          />
         </div>
 
         <div className="checklist-batch-hero-card__chips">
@@ -306,10 +305,23 @@ function BatchSummaryCard({
             <Icon name="activity" />
             {formatStatusLabel(batch.status)}
           </span>
-          <span className="pill checklist-batch-hero-card__pill">
-            <Icon name="globe" />
-            {batchSourceLabel(batch)}
-          </span>
+          {batch.page_url ? (
+            <a
+              className="pill checklist-batch-hero-card__pill checklist-batch-hero-card__pill--link"
+              href={batch.page_url}
+              target="_blank"
+              rel="noreferrer noopener"
+              title={batch.page_url}
+            >
+              <Icon name="globe" />
+              {compactPageLinkLabel(batch.page_url)}
+            </a>
+          ) : (
+            <span className="pill checklist-batch-hero-card__pill">
+              <Icon name="globe" />
+              No page link
+            </span>
+          )}
           <span className="pill checklist-batch-hero-card__pill">
             <Icon name="checklist" />
             {summary.total} items
@@ -326,71 +338,74 @@ function BatchSummaryCard({
             <strong>{summary.open}</strong>
           </article>
           <article className="checklist-batch-hero-card__mini-stat">
-            <span>In Progress</span>
+            <span>Progress</span>
             <strong>{summary.inProgress}</strong>
           </article>
           <article className="checklist-batch-hero-card__mini-stat">
             <span>Done</span>
             <strong>{summary.done}</strong>
           </article>
-        </div>
-
-        <div className="checklist-batch-hero-card__lead-row">
-          <div className={`checklist-batch-hero-card__avatar ${batch.qa_lead_name ? '' : 'is-empty'}`}>
-            {batch.qa_lead_name ? initialsFromName(batch.qa_lead_name) : 'QA'}
-          </div>
-          <div className="checklist-batch-hero-card__lead-copy">
-            <span>QA Lead</span>
-            <strong>{qaLeadName}</strong>
-            <small>{qaLeadSupport}</small>
-          </div>
-          {canManageBatch ? (
-            <button
-              type="button"
-              className={`checklist-assignee-trigger checklist-assignee-trigger--hero ${isBatchLeadMenuOpen ? 'is-open' : ''}`}
-              aria-haspopup="menu"
-              aria-expanded={isBatchLeadMenuOpen}
-              aria-controls={isBatchLeadMenuOpen ? `checklist-batch-lead-menu-${batch.id}` : undefined}
-              disabled={isSavingBatchLead}
-              onClick={onBatchLeadTrigger}
-            >
-              <span>{isSavingBatchLead ? 'Saving...' : 'Change'}</span>
-              <span className="checklist-assignee-trigger__caret" aria-hidden="true">v</span>
-            </button>
-          ) : null}
-        </div>
-
-        <div className="checklist-batch-hero-card__footer">
-          <div className="checklist-batch-hero-card__footer-item">
-            <span>
-              <Icon name="organization" />
-              Organization
-            </span>
-            <strong>{batch.org_name || 'Organization'}</strong>
-          </div>
-          <div className="checklist-batch-hero-card__footer-item">
-            <span>
-              <Icon name="globe" />
-              Tested page
-            </span>
-            {batch.page_url ? (
-              <a className="inline-link" href={batch.page_url} target="_blank" rel="noreferrer noopener">
-                Open page
-              </a>
-            ) : (
-              <strong>No saved page link</strong>
-            )}
-          </div>
-          <div className="checklist-batch-hero-card__footer-item">
-            <span>
-              <Icon name="alert" />
-              Blocked
-            </span>
+          <article className="checklist-batch-hero-card__mini-stat">
+            <span>Blocked</span>
             <strong>{summary.blocked}</strong>
-          </div>
+          </article>
         </div>
       </div>
     </section>
+  )
+}
+
+function ChecklistBatchLeadBadge({
+  batch,
+  canManageBatch,
+  isSavingBatchLead,
+  isBatchLeadMenuOpen,
+  onBatchLeadTrigger,
+}: {
+  batch: ChecklistBatch
+  canManageBatch: boolean
+  isSavingBatchLead: boolean
+  isBatchLeadMenuOpen: boolean
+  onBatchLeadTrigger: (event: ReactMouseEvent<HTMLButtonElement>) => void
+}) {
+  const qaLeadName = batch.qa_lead_name || 'Unassigned'
+  const qaLeadInitials = batch.qa_lead_name ? initialsFromName(batch.qa_lead_name) : 'QA'
+  const actionLabel = isSavingBatchLead ? 'Saving...' : qaLeadName
+
+  if (canManageBatch) {
+    return (
+      <button
+        type="button"
+        className={`checklist-batch-hero-card__lead-compact ${isBatchLeadMenuOpen ? 'is-open' : ''}`}
+        aria-haspopup="menu"
+        aria-expanded={isBatchLeadMenuOpen}
+        aria-controls={isBatchLeadMenuOpen ? `checklist-batch-lead-menu-${batch.id}` : undefined}
+        aria-label={`QA lead: ${qaLeadName}`}
+        disabled={isSavingBatchLead}
+        onClick={onBatchLeadTrigger}
+      >
+        <span className={`checklist-batch-hero-card__lead-avatar ${batch.qa_lead_name ? '' : 'is-empty'}`} aria-hidden="true">
+          {qaLeadInitials}
+        </span>
+        <span className="checklist-batch-hero-card__lead-compact-copy">
+          <span>QA Lead</span>
+          <strong>{actionLabel}</strong>
+        </span>
+        <span className="checklist-batch-hero-card__lead-caret" aria-hidden="true">v</span>
+      </button>
+    )
+  }
+
+  return (
+    <div className="checklist-batch-hero-card__lead-compact is-static" aria-label={`QA lead: ${qaLeadName}`}>
+      <span className={`checklist-batch-hero-card__lead-avatar ${batch.qa_lead_name ? '' : 'is-empty'}`} aria-hidden="true">
+        {qaLeadInitials}
+      </span>
+      <span className="checklist-batch-hero-card__lead-compact-copy">
+        <span>QA Lead</span>
+        <strong>{qaLeadName}</strong>
+      </span>
+    </div>
   )
 }
 
@@ -506,6 +521,18 @@ export function ChecklistBatchDetailPage() {
     setIsBatchLeadMenuOpen(false)
     setBatchLeadMenuAnchor(null)
   }, [])
+
+  const handleBatchLeadTrigger = useCallback((event: ReactMouseEvent<HTMLButtonElement>) => {
+    setError('')
+    setMessage('')
+    closeItemAssignMenu()
+    if (isBatchLeadMenuOpen) {
+      closeBatchLeadMenu()
+      return
+    }
+    setIsBatchLeadMenuOpen(true)
+    setBatchLeadMenuAnchor(event.currentTarget)
+  }, [closeBatchLeadMenu, closeItemAssignMenu, isBatchLeadMenuOpen])
 
   useEffect(() => {
     const run = async () => {
@@ -651,17 +678,7 @@ export function ChecklistBatchDetailPage() {
             canManageBatch={canManageBatch}
             isSavingBatchLead={isSavingBatchLead}
             isBatchLeadMenuOpen={isBatchLeadMenuOpen}
-            onBatchLeadTrigger={(event) => {
-              setError('')
-              setMessage('')
-              closeItemAssignMenu()
-              if (isBatchLeadMenuOpen) {
-                closeBatchLeadMenu()
-                return
-              }
-              setIsBatchLeadMenuOpen(true)
-              setBatchLeadMenuAnchor(event.currentTarget)
-            }}
+            onBatchLeadTrigger={handleBatchLeadTrigger}
           />
 
           {shouldShowScreenshots ? (

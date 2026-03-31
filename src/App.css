@@ -1756,6 +1756,7 @@
   display: inline-flex;
   align-items: center;
   gap: 8px;
+  min-width: 0;
 }
 
 .top-bar__actions .theme-toggle {
@@ -1764,6 +1765,112 @@
 
 .top-bar__actions .theme-toggle__label {
   display: none;
+}
+
+.checklist-batch-hero-card__lead-compact {
+  min-width: 0;
+  max-width: 150px;
+  min-height: 42px;
+  padding: 4px 8px 4px 4px;
+  border: 1px solid var(--border-soft);
+  border-radius: 999px;
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  background: color-mix(in srgb, var(--surface-card) 94%, transparent);
+  color: var(--text-primary);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.04);
+  flex-shrink: 1;
+  transition: transform 160ms ease, border-color 160ms ease, background 160ms ease, box-shadow 160ms ease;
+}
+
+button.checklist-batch-hero-card__lead-compact {
+  cursor: pointer;
+}
+
+.checklist-batch-hero-card__lead-compact:not(.is-static):not(:disabled):hover,
+.checklist-batch-hero-card__lead-compact:not(.is-static):not(:disabled):focus-visible,
+.checklist-batch-hero-card__lead-compact.is-open {
+  border-color: color-mix(in srgb, var(--accent-primary) 38%, var(--border-soft));
+  background: color-mix(in srgb, var(--surface-card) 88%, var(--accent-primary) 12%);
+  transform: translateY(-1px);
+}
+
+.checklist-batch-hero-card__lead-compact:disabled {
+  cursor: wait;
+  opacity: 0.82;
+}
+
+.checklist-batch-hero-card__lead-avatar {
+  width: 28px;
+  height: 28px;
+  border-radius: 999px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  background: linear-gradient(145deg, rgba(57, 179, 107, 0.24), rgba(30, 41, 59, 0.12));
+  color: var(--accent-strong);
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+}
+
+.checklist-batch-hero-card__lead-avatar.is-empty {
+  background: color-mix(in srgb, var(--surface-card-muted) 88%, transparent);
+  color: var(--text-muted);
+}
+
+.checklist-batch-hero-card__lead-compact-copy {
+  min-width: 0;
+  display: grid;
+  gap: 1px;
+  text-align: left;
+}
+
+.checklist-batch-hero-card__lead-compact-copy span {
+  font-size: 0.52rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--text-muted);
+}
+
+.checklist-batch-hero-card__lead-compact-copy strong {
+  max-width: 78px;
+  font-size: 0.82rem;
+  line-height: 1.05;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.checklist-batch-hero-card__lead-caret {
+  font-size: 0.72rem;
+  color: var(--text-muted);
+  flex-shrink: 0;
+}
+
+@media (max-width: 520px) {
+  .checklist-batch-hero-card__lead-compact {
+    max-width: 126px;
+    padding-right: 7px;
+    gap: 6px;
+  }
+
+  .checklist-batch-hero-card__lead-compact-copy strong {
+    max-width: 54px;
+  }
+}
+
+@media (max-width: 420px) {
+  .checklist-batch-hero-card__lead-compact {
+    max-width: none;
+    padding-right: 5px;
+  }
+
+  .checklist-batch-hero-card__lead-compact-copy {
+    display: none;
+  }
 }
 
 .top-bar__titles h1 {
@@ -3912,11 +4019,16 @@
 .checklist-batch-hero-card::before {
   content: '';
   position: absolute;
-  inset: 0 0 auto;
-  height: 92px;
+  inset: 0;
+  border-radius: inherit;
   background:
-    radial-gradient(circle at top left, rgba(73, 98, 124, 0.14), transparent 58%),
-    linear-gradient(180deg, rgba(244, 240, 233, 0.92), rgba(244, 240, 233, 0));
+    radial-gradient(circle at top left, color-mix(in srgb, var(--accent-steel) 20%, transparent), transparent 58%),
+    linear-gradient(
+      180deg,
+      color-mix(in srgb, var(--surface-card) 94%, transparent) 0%,
+      color-mix(in srgb, var(--surface-card) 76%, transparent) 34%,
+      transparent 100%
+    );
   pointer-events: none;
 }
 
@@ -3935,6 +4047,12 @@
 .checklist-batch-hero-card__footer,
 .checklist-batch-hero-card__footer-item {
   display: grid;
+}
+
+.checklist-batch-hero-card__header {
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: start;
+  gap: 12px;
 }
 
 .checklist-batch-hero-card__copy {
@@ -3962,6 +4080,22 @@
   justify-content: flex-start;
 }
 
+.checklist-batch-hero-card__pill--link {
+  min-width: 0;
+  max-width: 100%;
+  text-decoration: none;
+}
+
+.checklist-batch-hero-card__pill--link svg {
+  flex-shrink: 0;
+}
+
+.checklist-batch-hero-card__pill--link {
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
 .checklist-batch-hero-card__pill svg,
 .checklist-batch-hero-card__footer-item span svg {
   width: 16px;
@@ -3969,7 +4103,7 @@
 }
 
 .checklist-batch-hero-card__progress {
-  grid-template-columns: repeat(3, minmax(0, 1fr));
+  grid-template-columns: repeat(4, minmax(0, 1fr));
   gap: 10px;
 }
 
@@ -3981,7 +4115,7 @@
   display: grid;
   gap: 6px;
   align-content: start;
-  background: rgba(255, 255, 255, 0.54);
+  background: color-mix(in srgb, var(--surface-card-muted) 88%, transparent);
 }
 
 .checklist-batch-hero-card__mini-stat span {
@@ -4003,7 +4137,7 @@
   padding: 16px;
   border: 1px solid var(--border-soft);
   border-radius: 22px;
-  background: rgba(255, 255, 255, 0.68);
+  background: color-mix(in srgb, var(--surface-card-muted) 92%, transparent);
 }
 
 .checklist-batch-hero-card__avatar {
@@ -4013,15 +4147,15 @@
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  background: rgba(73, 98, 124, 0.14);
+  background: color-mix(in srgb, var(--accent-steel) 18%, var(--surface-card-muted));
   color: var(--accent-steel);
   font-size: 0.92rem;
   font-weight: 800;
 }
 
 .checklist-batch-hero-card__avatar.is-empty {
-  border: 1px dashed rgba(73, 98, 124, 0.24);
-  background: rgba(244, 240, 233, 0.72);
+  border: 1px dashed color-mix(in srgb, var(--accent-steel) 24%, var(--border-soft));
+  background: color-mix(in srgb, var(--surface-card) 82%, transparent);
   color: var(--text-muted);
 }
 
@@ -4076,14 +4210,14 @@
 .checklist-assignee-trigger {
   min-height: 34px;
   padding: 0 12px;
-  border: 1px solid rgba(73, 98, 124, 0.18);
+  border: 1px solid color-mix(in srgb, var(--accent-steel) 22%, var(--border-soft));
   border-radius: 999px;
   display: inline-flex;
   align-items: center;
   justify-content: center;
   gap: 8px;
-  background: rgba(244, 240, 233, 0.92);
-  color: var(--text-main);
+  background: color-mix(in srgb, var(--surface-card) 88%, transparent);
+  color: var(--text-primary);
   font: inherit;
   font-size: 0.82rem;
   font-weight: 700;
@@ -4099,8 +4233,8 @@
 .checklist-assignee-trigger:not(:disabled):focus-visible,
 .checklist-assignee-trigger.is-open {
   transform: translateY(-1px);
-  border-color: rgba(73, 98, 124, 0.32);
-  background: rgba(236, 242, 247, 0.98);
+  border-color: color-mix(in srgb, var(--accent-steel) 34%, var(--border-soft));
+  background: color-mix(in srgb, var(--drawer-menu-item-bg) 92%, var(--surface-card));
   box-shadow: 0 12px 24px rgba(17, 22, 29, 0.12);
 }
 
@@ -4120,8 +4254,86 @@
 
 .checklist-assignee-trigger--hero {
   min-height: 38px;
-  background: rgba(255, 255, 255, 0.88);
+  background: color-mix(in srgb, var(--surface-card) 94%, transparent);
   justify-self: end;
+}
+
+.site-shell[data-theme='dark'] .checklist-batch-hero-card::before {
+  background:
+    radial-gradient(circle at top left, rgba(73, 98, 124, 0.26), transparent 58%),
+    linear-gradient(180deg, rgba(27, 34, 44, 0.96) 0%, rgba(27, 34, 44, 0.72) 34%, rgba(27, 34, 44, 0) 100%);
+}
+
+.site-shell[data-theme='dark'] .checklist-batch-hero-card__mini-stat {
+  background: color-mix(in srgb, var(--surface-card-muted) 96%, rgba(7, 12, 18, 0.36));
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.04);
+}
+
+.site-shell[data-theme='dark'] .checklist-batch-hero-card__lead-row {
+  background: color-mix(in srgb, var(--surface-card-muted) 98%, rgba(7, 12, 18, 0.34));
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.04);
+}
+
+.site-shell[data-theme='dark'] .checklist-batch-hero-card__avatar {
+  background: linear-gradient(145deg, rgba(73, 98, 124, 0.84), rgba(57, 179, 107, 0.38));
+  color: #dbe8f4;
+}
+
+.site-shell[data-theme='dark'] .checklist-batch-hero-card__avatar.is-empty {
+  background: rgba(22, 30, 39, 0.92);
+  color: #b3c0cd;
+}
+
+.site-shell[data-theme='dark'] .checklist-batch-hero-card__footer-item {
+  background: color-mix(in srgb, var(--surface-card-muted) 96%, rgba(7, 12, 18, 0.32));
+}
+
+.site-shell[data-theme='dark'] .checklist-batch-hero-card__footer-item a {
+  color: #9fc7ec;
+}
+
+.site-shell[data-theme='dark'] .checklist-assignee-trigger {
+  border-color: rgba(126, 151, 176, 0.2);
+  background: rgba(27, 34, 44, 0.96);
+  color: #eef4fb;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.04);
+}
+
+.site-shell[data-theme='dark'] .checklist-assignee-trigger:not(:disabled):hover,
+.site-shell[data-theme='dark'] .checklist-assignee-trigger:not(:disabled):focus-visible,
+.site-shell[data-theme='dark'] .checklist-assignee-trigger.is-open {
+  border-color: rgba(126, 151, 176, 0.34);
+  background: rgba(34, 44, 57, 0.98);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.05),
+    0 12px 24px rgba(2, 6, 12, 0.34);
+}
+
+.site-shell[data-theme='dark'] .checklist-batch-hero-card__lead-compact {
+  border-color: rgba(126, 151, 176, 0.2);
+  background: rgba(27, 34, 44, 0.96);
+  color: #eef4fb;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.04);
+}
+
+.site-shell[data-theme='dark'] .checklist-batch-hero-card__lead-compact:not(.is-static):not(:disabled):hover,
+.site-shell[data-theme='dark'] .checklist-batch-hero-card__lead-compact:not(.is-static):not(:disabled):focus-visible,
+.site-shell[data-theme='dark'] .checklist-batch-hero-card__lead-compact.is-open {
+  border-color: rgba(126, 151, 176, 0.34);
+  background: rgba(34, 44, 57, 0.98);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.05),
+    0 12px 24px rgba(2, 6, 12, 0.34);
+}
+
+.site-shell[data-theme='dark'] .checklist-batch-hero-card__lead-avatar {
+  background: linear-gradient(145deg, rgba(73, 98, 124, 0.84), rgba(57, 179, 107, 0.38));
+  color: #dbe8f4;
+}
+
+.site-shell[data-theme='dark'] .checklist-batch-hero-card__lead-avatar.is-empty {
+  background: rgba(22, 30, 39, 0.92);
+  color: #b3c0cd;
 }
 
 .checklist-assignee-menu {
@@ -4255,7 +4467,23 @@
   }
 
   .checklist-batch-hero-card__progress {
-    grid-template-columns: 1fr;
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    gap: 8px;
+  }
+
+  .checklist-batch-hero-card__mini-stat {
+    min-height: 72px;
+    padding: 12px 10px;
+    border-radius: 18px;
+  }
+
+  .checklist-batch-hero-card__mini-stat span {
+    font-size: 0.6rem;
+    letter-spacing: 0.06em;
+  }
+
+  .checklist-batch-hero-card__mini-stat strong {
+    font-size: 1.15rem;
   }
 
   .checklist-batch-hero-card__lead-row {
