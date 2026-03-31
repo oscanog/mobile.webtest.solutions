@@ -4330,10 +4330,8 @@
 }
 
 .page-scroll--ai-chat {
-  min-height: 0;
-  overflow-y: auto;
-  overflow-x: hidden;
-  -webkit-overflow-scrolling: touch;
+  height: 100%;
+  overflow: hidden;
   background: transparent;
 }
 
@@ -4395,6 +4393,9 @@
   gap: 14px;
   align-content: start;
   min-width: 0;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  -webkit-overflow-scrolling: touch;
 }
 
 .ai-chat-page__body--centered {
