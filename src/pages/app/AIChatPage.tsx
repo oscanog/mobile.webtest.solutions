@@ -33,12 +33,14 @@ import { FormMessage, formatChatTime } from '../shared'
 export type AIChatPageView = 'landing' | 'create' | 'thread'
 
 type FlowStep = 1 | 2 | 3 | 4 | 5
+type ExistingBatchModuleMode = 'reuse' | 'custom'
 
 type DraftFormState = {
   sourceMode: AIChatSourceMode
   projectId: number
   targetMode: 'new' | 'existing'
   existingBatchId: number
+  existingBatchModuleMode: ExistingBatchModuleMode
   batchTitle: string
   moduleName: string
   submoduleName: string
@@ -138,6 +140,7 @@ function createEmptyDraftForm(sourceMode: AIChatSourceMode = 'screenshot'): Draf
     projectId: 0,
     targetMode: 'new',
     existingBatchId: 0,
+    existingBatchModuleMode: 'reuse',
     batchTitle: '',
     moduleName: '',
     submoduleName: '',
@@ -402,10 +405,37 @@ function draftContextToForm(context?: AIChatDraftContext | null): DraftFormState
     projectId: context.project_id ?? 0,
     targetMode: context.target_mode === 'existing' ? 'existing' : 'new',
     existingBatchId: context.existing_batch_id ?? 0,
+    existingBatchModuleMode: 'reuse',
     batchTitle: context.batch_title ?? '',
     moduleName: context.module_name ?? '',
     submoduleName: context.submodule_name ?? '',
     pageUrl: context.page_url ?? '',
+  }
+}
+
+function trimDraftText(value?: string | null) {
+  return (value ?? '').trim()
+}
+
+function getBatchModuleValues(selectedBatch: ChecklistBatch | null) {
+  return {
+    moduleName: trimDraftText(selectedBatch?.module_name),
+    submoduleName: trimDraftText(selectedBatch?.submodule_name),
+  }
+}
+
+function getEffectiveModuleValues(form: DraftFormState, selectedBatch: ChecklistBatch | null, fallbackContext?: AIChatDraftContext | null) {
+  if (form.targetMode === 'existing' && form.existingBatchModuleMode === 'reuse') {
+    const batchModuleValues = getBatchModuleValues(selectedBatch)
+    return {
+      moduleName: batchModuleValues.moduleName || trimDraftText(fallbackContext?.module_name),
+      submoduleName: batchModuleValues.submoduleName || trimDraftText(fallbackContext?.submodule_name),
+    }
+  }
+
+  return {
+    moduleName: trimDraftText(form.moduleName),
+    submoduleName: trimDraftText(form.submoduleName),
   }
 }
 
@@ -420,14 +450,14 @@ function formMatchesContext(form: DraftFormState, context?: AIChatDraftContext |
     form.targetMode === (context.target_mode === 'existing' ? 'existing' : 'new') &&
     form.existingBatchId === (context.existing_batch_id ?? 0) &&
     form.batchTitle.trim() === (context.batch_title ?? '').trim() &&
-    form.moduleName.trim() === (context.module_name ?? '').trim() &&
-    form.submoduleName.trim() === (context.submodule_name ?? '').trim() &&
-    form.pageUrl.trim() === (context.page_url ?? '').trim()
+    trimDraftText(form.moduleName) === trimDraftText(context.module_name) &&
+    trimDraftText(form.submoduleName) === trimDraftText(context.submodule_name) &&
+    trimDraftText(form.pageUrl) === trimDraftText(context.page_url)
   )
 }
 
-function buildDraftPayload(form: DraftFormState): DraftContextPayload {
-  const pageUrl = form.pageUrl.trim()
+function buildDraftPayload(form: DraftFormState, selectedBatch: ChecklistBatch | null, fallbackContext?: AIChatDraftContext | null): DraftContextPayload {
+  const pageUrl = trimDraftText(form.pageUrl)
   if (!isValidPageUrl(pageUrl)) {
     throw new Error('Link is required and must be a valid http:// or https:// URL.')
   }
@@ -441,16 +471,23 @@ function buildDraftPayload(form: DraftFormState): DraftContextPayload {
       throw new Error('Select an existing checklist batch for this project.')
     }
 
+    const effectiveModuleValues = getEffectiveModuleValues(form, selectedBatch, fallbackContext)
+    if (!effectiveModuleValues.moduleName) {
+      throw new Error('Module name is required for an existing checklist batch target.')
+    }
+
     return {
       project_id: form.projectId,
       source_mode: form.sourceMode,
       target_mode: 'existing',
       existing_batch_id: form.existingBatchId,
+      module_name: effectiveModuleValues.moduleName,
+      submodule_name: effectiveModuleValues.submoduleName,
       page_url: pageUrl,
     }
   }
 
-  if (!form.batchTitle.trim() || !form.moduleName.trim()) {
+  if (!trimDraftText(form.batchTitle) || !trimDraftText(form.moduleName)) {
     throw new Error('Batch title and module name are required for a new checklist batch.')
   }
 
@@ -458,9 +495,9 @@ function buildDraftPayload(form: DraftFormState): DraftContextPayload {
     project_id: form.projectId,
     source_mode: form.sourceMode,
     target_mode: 'new',
-    batch_title: form.batchTitle.trim(),
-    module_name: form.moduleName.trim(),
-    submodule_name: form.submoduleName.trim(),
+    batch_title: trimDraftText(form.batchTitle),
+    module_name: trimDraftText(form.moduleName),
+    submodule_name: trimDraftText(form.submoduleName),
     page_url: pageUrl,
   }
 }
@@ -552,18 +589,15 @@ function getThreadModulePreview(summary: AIChatThreadSummary, detail?: AIChatThr
 function buildSummaryRows(form: DraftFormState, projects: ProjectSummary[], selectedBatch: ChecklistBatch | null, fallbackContext?: AIChatDraftContext | null) {
   const isExisting = form.targetMode === 'existing'
   const selectedProject = projects.find((project) => project.id === form.projectId) ?? null
+  const effectiveModuleValues = getEffectiveModuleValues(form, selectedBatch, fallbackContext)
   const sourceValue = sourceModeLabel(form.sourceMode)
   const projectName = selectedProject?.name || fallbackContext?.project_name || 'Not selected'
   const batchValue = isExisting
     ? selectedBatch?.title || fallbackContext?.existing_batch_title || 'No existing batch selected'
-    : form.batchTitle.trim() || fallbackContext?.batch_title || 'Not set'
-  const moduleValue = isExisting
-    ? selectedBatch?.module_name || fallbackContext?.module_name || 'Module will follow the selected batch'
-    : form.moduleName.trim() || fallbackContext?.module_name || 'Not set'
-  const submoduleValue = isExisting
-    ? selectedBatch?.submodule_name || fallbackContext?.submodule_name || ''
-    : form.submoduleName.trim() || fallbackContext?.submodule_name || ''
-  const pageUrl = form.pageUrl.trim() || selectedBatch?.page_url || fallbackContext?.page_url || ''
+    : trimDraftText(form.batchTitle) || fallbackContext?.batch_title || 'Not set'
+  const moduleValue = effectiveModuleValues.moduleName || 'Not set'
+  const submoduleValue = effectiveModuleValues.submoduleName
+  const pageUrl = trimDraftText(form.pageUrl) || selectedBatch?.page_url || fallbackContext?.page_url || ''
 
   const rows: SummaryRow[] = [
     { label: 'Source', value: sourceValue, step: 1 },
@@ -601,10 +635,11 @@ function buildFallbackPagePreview(pageUrl: string, message: string): AIChatPageL
 }
 
 function buildThreadTitle(form: DraftFormState, selectedProject: ProjectSummary | null, selectedBatch: ChecklistBatch | null) {
+  const effectiveModuleValues = getEffectiveModuleValues(form, selectedBatch)
   if (form.targetMode === 'existing') {
-    return selectedBatch?.module_name || selectedBatch?.title || selectedProject?.name || 'New chat'
+    return effectiveModuleValues.moduleName || selectedBatch?.title || selectedProject?.name || 'New chat'
   }
-  return form.moduleName.trim() || form.batchTitle.trim() || selectedProject?.name || 'New chat'
+  return trimDraftText(form.moduleName) || trimDraftText(form.batchTitle) || selectedProject?.name || 'New chat'
 }
 
 function previewFromDraftContext(context?: AIChatDraftContext | null): AIChatPageLinkPreview | null {
@@ -1590,12 +1625,18 @@ function AIChatCreateView({
     () => availableBatches.find((batch) => batch.id === draftForm.existingBatchId) ?? null,
     [availableBatches, draftForm.existingBatchId],
   )
+  const existingBatchModuleValues = useMemo(() => getBatchModuleValues(selectedExistingBatch), [selectedExistingBatch])
+  const effectiveModuleValues = useMemo(
+    () => getEffectiveModuleValues(draftForm, selectedExistingBatch, editingThread?.draft_context),
+    [draftForm, editingThread?.draft_context, selectedExistingBatch],
+  )
   const summary = useMemo(
     () => buildSummaryRows(draftForm, projects, selectedExistingBatch, editingThread?.draft_context),
     [draftForm, editingThread?.draft_context, projects, selectedExistingBatch],
   )
   const contextLocked = Boolean(editingThread?.draft_context.is_locked)
   const contextChanged = Boolean(editingThread && !formMatchesContext(draftForm, editingThread.draft_context))
+  const draftMatchesEditingContext = Boolean(editingThread && formMatchesContext(draftForm, editingThread.draft_context))
   const sourceAvailability = getSourceModeAvailability(bootstrap, draftForm.sourceMode)
   const screenshotRequired = sourceModeRequiresAttachments(draftForm.sourceMode)
   const linkVerificationState = useMemo(
@@ -1774,6 +1815,47 @@ function AIChatCreateView({
   }, [draftForm.pageUrl, draftForm.targetMode, selectedExistingBatch?.page_url])
 
   useEffect(() => {
+    if (!editingThread || draftForm.targetMode !== 'existing' || !selectedExistingBatch || !draftMatchesEditingContext) {
+      return
+    }
+
+    const savedModuleName = trimDraftText(editingThread.draft_context.module_name)
+    const savedSubmoduleName = trimDraftText(editingThread.draft_context.submodule_name)
+    const nextMode: ExistingBatchModuleMode =
+      savedModuleName !== existingBatchModuleValues.moduleName || savedSubmoduleName !== existingBatchModuleValues.submoduleName ? 'custom' : 'reuse'
+
+    setDraftForm((current) => {
+      if (current.targetMode !== 'existing' || current.existingBatchId !== selectedExistingBatch.id) {
+        return current
+      }
+
+      const nextModuleName = nextMode === 'custom' ? savedModuleName : existingBatchModuleValues.moduleName
+      const nextSubmoduleName = nextMode === 'custom' ? savedSubmoduleName : existingBatchModuleValues.submoduleName
+      if (
+        current.existingBatchModuleMode === nextMode &&
+        trimDraftText(current.moduleName) === nextModuleName &&
+        trimDraftText(current.submoduleName) === nextSubmoduleName
+      ) {
+        return current
+      }
+
+      return {
+        ...current,
+        existingBatchModuleMode: nextMode,
+        moduleName: nextModuleName,
+        submoduleName: nextSubmoduleName,
+      }
+    })
+  }, [
+    draftForm.targetMode,
+    draftMatchesEditingContext,
+    editingThread,
+    existingBatchModuleValues.moduleName,
+    existingBatchModuleValues.submoduleName,
+    selectedExistingBatch,
+  ])
+
+  useEffect(() => {
     const contextPreview = previewFromDraftContext(editingThread?.draft_context)
     if (!contextPreview || contextPreview.page_url !== draftForm.pageUrl.trim()) {
       return
@@ -1849,12 +1931,19 @@ function AIChatCreateView({
       if (draftForm.targetMode === 'existing' && draftForm.existingBatchId <= 0) {
         return loadingBatches ? 'Wait until checklist batches finish loading.' : 'Select an existing batch or choose New batch.'
       }
-      if (draftForm.targetMode === 'new' && !draftForm.batchTitle.trim()) {
+      if (draftForm.targetMode === 'new' && !trimDraftText(draftForm.batchTitle)) {
         return 'Enter a batch title before continuing.'
       }
     }
-    if (currentStep === 4 && draftForm.targetMode === 'new' && !draftForm.moduleName.trim()) {
-      return 'Enter a module name before continuing.'
+    if (currentStep === 4) {
+      if (draftForm.targetMode === 'new' && !trimDraftText(draftForm.moduleName)) {
+        return 'Enter a module name before continuing.'
+      }
+      if (draftForm.targetMode === 'existing' && !effectiveModuleValues.moduleName) {
+        return draftForm.existingBatchModuleMode === 'reuse'
+          ? 'This batch has no saved module yet. Switch to Custom for this draft and enter one before continuing.'
+          : 'Enter a module name before continuing.'
+      }
     }
     return ''
   }
@@ -1895,7 +1984,7 @@ function AIChatCreateView({
   }
 
   const syncThreadContext = async () => {
-    const payload = buildDraftPayload(draftForm)
+    const payload = buildDraftPayload(draftForm, selectedExistingBatch, editingThread?.draft_context)
     const { threadId, thread } = await ensureThread()
 
     if (formMatchesContext(draftForm, thread.draft_context)) {
@@ -2073,8 +2162,8 @@ function AIChatCreateView({
     }
   }
 
-  const existingModuleName = selectedExistingBatch?.module_name || editingThread?.draft_context.module_name || ''
-  const existingSubmoduleName = selectedExistingBatch?.submodule_name || editingThread?.draft_context.submodule_name || ''
+  const reuseModuleName = existingBatchModuleValues.moduleName || trimDraftText(editingThread?.draft_context.module_name)
+  const reuseSubmoduleName = existingBatchModuleValues.submoduleName || trimDraftText(editingThread?.draft_context.submodule_name)
 
   const renderStep = () => {
     switch (step) {
@@ -2261,7 +2350,17 @@ function AIChatCreateView({
                   type="button"
                   className={`ai-chat-choice-card ${draftForm.projectId === project.id ? 'is-selected' : ''}`}
                   onClick={() => {
-                    setDraftForm((current) => ({ ...current, projectId: project.id, existingBatchId: current.projectId === project.id ? current.existingBatchId : 0 }))
+                    setDraftForm((current) => {
+                      const projectChanged = current.projectId !== project.id
+                      return {
+                        ...current,
+                        projectId: project.id,
+                        existingBatchId: projectChanged ? 0 : current.existingBatchId,
+                        existingBatchModuleMode: projectChanged ? 'reuse' : current.existingBatchModuleMode,
+                        moduleName: projectChanged && current.targetMode === 'existing' ? '' : current.moduleName,
+                        submoduleName: projectChanged && current.targetMode === 'existing' ? '' : current.submoduleName,
+                      }
+                    })
                     setError('')
                   }}
                 >
@@ -2289,7 +2388,7 @@ function AIChatCreateView({
                 type="button"
                 className={`ai-chat-choice-card ${draftForm.targetMode === 'new' ? 'is-selected' : ''}`}
                 onClick={() => {
-                  setDraftForm((current) => ({ ...current, targetMode: 'new', existingBatchId: 0 }))
+                  setDraftForm((current) => ({ ...current, targetMode: 'new', existingBatchId: 0, existingBatchModuleMode: 'reuse' }))
                   setError('')
                 }}
               >
@@ -2308,15 +2407,19 @@ function AIChatCreateView({
                   type="button"
                   className={`ai-chat-choice-card ${draftForm.targetMode === 'existing' && draftForm.existingBatchId === batch.id ? 'is-selected' : ''}`}
                   onClick={() => {
-                    setDraftForm((current) => ({
-                      ...current,
-                      targetMode: 'existing',
-                      existingBatchId: batch.id,
-                      pageUrl:
-                        current.targetMode === 'existing' && current.existingBatchId === batch.id
-                          ? current.pageUrl
-                          : batch.page_url || current.pageUrl,
-                    }))
+                    setDraftForm((current) => {
+                      const isSameBatch = current.targetMode === 'existing' && current.existingBatchId === batch.id
+                      return {
+                        ...current,
+                        targetMode: 'existing',
+                        existingBatchId: batch.id,
+                        batchTitle: batch.title || current.batchTitle,
+                        existingBatchModuleMode: isSameBatch ? current.existingBatchModuleMode : 'reuse',
+                        moduleName: isSameBatch ? current.moduleName : batch.module_name || '',
+                        submoduleName: isSameBatch ? current.submoduleName : batch.submodule_name || '',
+                        pageUrl: isSameBatch ? current.pageUrl : batch.page_url || current.pageUrl,
+                      }
+                    })
                     setError('')
                   }}
                 >
@@ -2341,7 +2444,7 @@ function AIChatCreateView({
                 <input className="input-inline" value={draftForm.batchTitle} onChange={(event) => setDraftForm((current) => ({ ...current, batchTitle: event.target.value }))} placeholder="Batch title" />
               </div>
             ) : (
-              <p className="body-copy">Existing batch mode will reuse the selected batch details in steps 3 and 4.</p>
+              <p className="body-copy">Step 4 lets you reuse this batch module or set a custom module and optional submodule for this draft only.</p>
             )}
             {editingThread?.draft_context.page_link_warning ? <FormMessage tone="info">{editingThread.draft_context.page_link_warning}</FormMessage> : null}
           </section>
@@ -2359,15 +2462,87 @@ function AIChatCreateView({
                 <input className="input-inline" value={draftForm.submoduleName} onChange={(event) => setDraftForm((current) => ({ ...current, submoduleName: event.target.value }))} placeholder="Submodule name (optional)" />
               </div>
             ) : (
-              <div className="ai-chat-readonly-stack">
-                <div className="ai-chat-readonly-card">
-                  <span>Module</span>
-                  <strong>{existingModuleName || 'No module stored for this batch yet'}</strong>
-                </div>
-                <div className="ai-chat-readonly-card">
-                  <span>Submodule</span>
-                  <strong>{existingSubmoduleName || 'No submodule saved'}</strong>
-                </div>
+              <div className="ai-chat-choice-list">
+                <button
+                  type="button"
+                  className={`ai-chat-choice-card ${draftForm.existingBatchModuleMode === 'reuse' ? 'is-selected' : ''}`}
+                  onClick={() => {
+                    setDraftForm((current) => ({
+                      ...current,
+                      existingBatchModuleMode: 'reuse',
+                      moduleName: existingBatchModuleValues.moduleName,
+                      submoduleName: existingBatchModuleValues.submoduleName,
+                    }))
+                    setError('')
+                  }}
+                >
+                  <span className="icon-wrap">
+                    <Icon name="checklist" />
+                  </span>
+                  <span className="ai-chat-choice-card__copy">
+                    <strong>Reuse batch module</strong>
+                    <small>
+                      {reuseModuleName || 'No module stored for this batch yet'}
+                      {reuseSubmoduleName ? ` / ${reuseSubmoduleName}` : ''}
+                    </small>
+                  </span>
+                </button>
+                <button
+                  type="button"
+                  className={`ai-chat-choice-card ${draftForm.existingBatchModuleMode === 'custom' ? 'is-selected' : ''}`}
+                  onClick={() => {
+                    setDraftForm((current) => {
+                      if (current.existingBatchModuleMode === 'custom') {
+                        return current
+                      }
+                      return {
+                        ...current,
+                        existingBatchModuleMode: 'custom',
+                        moduleName: existingBatchModuleValues.moduleName || current.moduleName,
+                        submoduleName: existingBatchModuleValues.submoduleName || current.submoduleName,
+                      }
+                    })
+                    setError('')
+                  }}
+                >
+                  <span className="icon-wrap">
+                    <Icon name="activity" />
+                  </span>
+                  <span className="ai-chat-choice-card__copy">
+                    <strong>Custom for this draft</strong>
+                    <small>Use a different module/submodule for this screenshot while keeping the same batch.</small>
+                  </span>
+                </button>
+                {draftForm.existingBatchModuleMode === 'custom' ? (
+                  <div className="inline-form">
+                    <input
+                      className="input-inline"
+                      value={draftForm.moduleName}
+                      onChange={(event) => setDraftForm((current) => ({ ...current, moduleName: event.target.value }))}
+                      placeholder="Module name"
+                    />
+                    <input
+                      className="input-inline"
+                      value={draftForm.submoduleName}
+                      onChange={(event) => setDraftForm((current) => ({ ...current, submoduleName: event.target.value }))}
+                      placeholder="Submodule name (optional)"
+                    />
+                  </div>
+                ) : (
+                  <div className="ai-chat-readonly-stack">
+                    <div className="ai-chat-readonly-card">
+                      <span>Module</span>
+                      <strong>{effectiveModuleValues.moduleName || 'No module stored for this batch yet'}</strong>
+                    </div>
+                    <div className="ai-chat-readonly-card">
+                      <span>Submodule</span>
+                      <strong>{effectiveModuleValues.submoduleName || 'No submodule saved'}</strong>
+                    </div>
+                  </div>
+                )}
+                {!reuseModuleName ? (
+                  <div className="ai-chat-inline-note ai-chat-inline-note--info">This batch does not have a saved module yet. Choose Custom for this draft to continue.</div>
+                ) : null}
               </div>
             )}
             <div className="ai-chat-inline-note ai-chat-inline-note--info">
@@ -2411,6 +2586,8 @@ function AIChatCreateView({
             />
           </div>
         )
+      default:
+        return null
     }
   }
 
