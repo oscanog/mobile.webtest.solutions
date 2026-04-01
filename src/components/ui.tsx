@@ -50,6 +50,13 @@ export function Icon({ name }: { name: IconName }) {
         <path d="M4 17h16" />
       </>
     ),
+    'more-vertical': (
+      <>
+        <circle cx="12" cy="5.5" r="1.8" fill="currentColor" stroke="none" />
+        <circle cx="12" cy="12" r="1.8" fill="currentColor" stroke="none" />
+        <circle cx="12" cy="18.5" r="1.8" fill="currentColor" stroke="none" />
+      </>
+    ),
     bell: (
       <>
         <path d="M7 10a5 5 0 1 1 10 0v4l1.5 2.5H5.5L7 14z" />

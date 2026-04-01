@@ -4,6 +4,7 @@ export type IconName =
   | 'projects'
   | 'reports'
   | 'more'
+  | 'more-vertical'
   | 'bell'
   | 'shield'
   | 'checklist'
