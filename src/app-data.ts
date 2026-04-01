@@ -9,6 +9,7 @@ export type IconName =
   | 'checklist'
   | 'users'
   | 'spark'
+  | 'image'
   | 'settings'
   | 'logout'
   | 'arrow'

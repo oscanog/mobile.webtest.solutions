@@ -5784,6 +5784,58 @@ button.checklist-batch-hero-card__lead-compact {
   word-break: break-word;
 }
 
+.ai-chat-summary-card__media {
+  display: grid;
+  grid-template-columns: 112px minmax(0, 1fr);
+  gap: 14px;
+  padding: 14px;
+  border-radius: 22px;
+  border: 1px solid rgba(47, 111, 211, 0.18);
+  background:
+    radial-gradient(circle at top left, rgba(76, 139, 255, 0.14), transparent 48%),
+    linear-gradient(180deg, rgba(244, 249, 255, 0.94), rgba(245, 248, 252, 0.88));
+}
+
+.ai-chat-summary-card__media-button {
+  position: relative;
+  min-width: 0;
+  border: 0;
+  padding: 0;
+  border-radius: 18px;
+  overflow: hidden;
+  background: rgba(15, 23, 32, 0.08);
+  box-shadow: 0 12px 28px rgba(15, 23, 32, 0.12);
+  cursor: pointer;
+}
+
+.ai-chat-summary-card__media-button img {
+  display: block;
+  width: 100%;
+  aspect-ratio: 3 / 4;
+  object-fit: cover;
+}
+
+.ai-chat-summary-card__media-overlay {
+  position: absolute;
+  inset-inline: 10px;
+  bottom: 10px;
+  padding: 6px 10px;
+  border-radius: 999px;
+  background: rgba(15, 23, 32, 0.68);
+  color: #f8fafc;
+  font-size: 0.68rem;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+  backdrop-filter: blur(10px);
+}
+
+.ai-chat-summary-card__media-copy {
+  min-width: 0;
+  display: grid;
+  align-content: center;
+  gap: 6px;
+}
+
 .ai-chat-thread-stage__conversation {
   min-height: 240px;
 }
@@ -6100,6 +6152,13 @@ button.checklist-batch-hero-card__lead-compact {
   background: var(--surface-card-muted);
 }
 
+.ai-chat-source-banner--screenshot {
+  background:
+    radial-gradient(circle at top left, rgba(76, 139, 255, 0.16), transparent 40%),
+    radial-gradient(circle at bottom right, rgba(57, 179, 107, 0.14), transparent 42%),
+    var(--surface-card-muted);
+}
+
 .ai-chat-source-banner__copy {
   display: grid;
   gap: 8px;
@@ -6119,6 +6178,174 @@ button.checklist-batch-hero-card__lead-compact {
 
 .ai-chat-link-step__inputs {
   align-items: stretch;
+}
+
+.ai-chat-screenshot-step,
+.ai-chat-link-step__stack,
+.ai-chat-screenshot-card,
+.ai-chat-screenshot-card__footer,
+.ai-chat-screenshot-card__meta,
+.ai-chat-screenshot-card__empty,
+.ai-chat-link-field,
+.ai-chat-link-field__control {
+  display: grid;
+  gap: 12px;
+}
+
+.ai-chat-screenshot-card {
+  overflow: hidden;
+  border-radius: 24px;
+  border: 1px solid rgba(47, 111, 211, 0.14);
+  background:
+    radial-gradient(circle at top, rgba(76, 139, 255, 0.12), transparent 52%),
+    linear-gradient(180deg, rgba(248, 251, 255, 0.96), rgba(242, 246, 250, 0.92));
+  box-shadow: 0 18px 36px rgba(15, 23, 32, 0.08);
+}
+
+.ai-chat-screenshot-card.has-image {
+  border-color: rgba(57, 179, 107, 0.18);
+}
+
+.ai-chat-screenshot-card__preview {
+  min-height: 240px;
+  background:
+    linear-gradient(135deg, rgba(230, 238, 247, 0.8), rgba(240, 246, 255, 0.92)),
+    rgba(255, 255, 255, 0.8);
+}
+
+.ai-chat-screenshot-card__preview img {
+  display: block;
+  width: 100%;
+  height: 100%;
+  min-height: 240px;
+  object-fit: cover;
+}
+
+.ai-chat-screenshot-card__empty {
+  min-height: 240px;
+  padding: 22px;
+  place-content: center;
+  text-align: center;
+}
+
+.ai-chat-screenshot-card__empty .icon-wrap {
+  margin-inline: auto;
+  width: 72px;
+  height: 72px;
+  border-radius: 18px;
+}
+
+.ai-chat-screenshot-card__empty .icon-wrap svg {
+  width: 32px;
+  height: 32px;
+}
+
+.ai-chat-screenshot-card__empty p,
+.ai-chat-screenshot-card__meta small {
+  margin: 0;
+  color: var(--text-muted-soft);
+  line-height: 1.5;
+}
+
+.ai-chat-screenshot-card__footer {
+  padding: 16px;
+}
+
+.ai-chat-screenshot-card__meta {
+  gap: 6px;
+}
+
+.ai-chat-screenshot-card__actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
+.ai-chat-link-field__label {
+  font-size: 0.7rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--text-muted);
+}
+
+.ai-chat-link-field__control {
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 10px 10px 14px;
+  border-radius: 20px;
+  border: 1px solid var(--input-border);
+  background: var(--input-bg);
+}
+
+.ai-chat-link-field__control--success {
+  border-color: rgba(57, 179, 107, 0.34);
+  box-shadow: 0 0 0 1px rgba(57, 179, 107, 0.1);
+}
+
+.ai-chat-link-field__control--error {
+  border-color: rgba(214, 122, 0, 0.34);
+  box-shadow: 0 0 0 1px rgba(214, 122, 0, 0.08);
+}
+
+.ai-chat-link-field__control--checking {
+  border-color: rgba(47, 111, 211, 0.28);
+}
+
+.ai-chat-link-field__input {
+  border: 0;
+  padding: 0;
+  background: transparent;
+  box-shadow: none;
+}
+
+.ai-chat-link-field__input:focus {
+  outline: none;
+}
+
+.ai-chat-link-field__badge {
+  width: 34px;
+  height: 34px;
+  border-radius: 999px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 0.82rem;
+  font-weight: 800;
+  letter-spacing: 0.02em;
+  background: rgba(125, 139, 153, 0.14);
+  color: var(--text-muted);
+}
+
+.ai-chat-link-field__badge--success {
+  background: rgba(57, 179, 107, 0.18);
+  color: #177848;
+}
+
+.ai-chat-link-field__badge--error {
+  background: rgba(214, 122, 0, 0.16);
+  color: #8b4b00;
+}
+
+.ai-chat-link-field__badge--checking {
+  background: rgba(47, 111, 211, 0.14);
+  color: #2f6fd3;
+  animation: ai-chat-link-badge-pulse 1.4s ease-in-out infinite;
+}
+
+.ai-chat-link-field__hint {
+  margin: -4px 0 0;
+  color: var(--text-muted-soft);
+  line-height: 1.45;
+}
+
+.ai-chat-link-field__hint--success {
+  color: #177848;
+}
+
+.ai-chat-link-field__hint--error {
+  color: #8b4b00;
 }
 
 .ai-chat-link-preview,
@@ -6173,6 +6400,71 @@ button.checklist-batch-hero-card__lead-compact {
 .ai-chat-link-auth small {
   color: var(--text-muted-soft);
   line-height: 1.45;
+}
+
+.ai-chat-lightbox {
+  position: fixed;
+  inset: 0;
+  z-index: 48;
+  display: grid;
+  place-items: center;
+  padding: max(20px, env(safe-area-inset-top, 0px)) 14px max(20px, env(safe-area-inset-bottom, 0px));
+}
+
+.ai-chat-lightbox__backdrop {
+  position: absolute;
+  inset: 0;
+  border: 0;
+  background: rgba(4, 12, 20, 0.7);
+  backdrop-filter: blur(16px);
+}
+
+.ai-chat-lightbox__dialog {
+  position: relative;
+  z-index: 1;
+  width: min(100%, 420px);
+  max-height: 100%;
+  padding: 14px;
+  border-radius: 28px;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  background: rgba(11, 18, 26, 0.92);
+  box-shadow: 0 30px 70px rgba(0, 0, 0, 0.34);
+}
+
+.ai-chat-lightbox__close {
+  position: absolute;
+  top: 12px;
+  right: 12px;
+  z-index: 2;
+  width: 38px;
+  height: 38px;
+  border: 0;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.14);
+  color: #f8fafc;
+  font-size: 1rem;
+  cursor: pointer;
+}
+
+.ai-chat-lightbox__image {
+  display: block;
+  width: 100%;
+  max-height: calc(100svh - 120px);
+  border-radius: 22px;
+  object-fit: contain;
+}
+
+@keyframes ai-chat-link-badge-pulse {
+  0%,
+  100% {
+    transform: scale(1);
+    opacity: 0.72;
+  }
+
+  50% {
+    transform: scale(1.06);
+    opacity: 1;
+  }
 }
 
 .ai-chat-thread-drawer__backdrop {
@@ -6265,6 +6557,30 @@ button.checklist-batch-hero-card__lead-compact {
   color: #bcd8ff;
 }
 
+.site-shell[data-theme='dark'] .ai-chat-summary-card__media {
+  border-color: rgba(110, 168, 255, 0.18);
+  background:
+    radial-gradient(circle at top left, rgba(110, 168, 255, 0.18), transparent 48%),
+    linear-gradient(180deg, rgba(17, 26, 37, 0.96), rgba(18, 28, 39, 0.92));
+}
+
+.site-shell[data-theme='dark'] .ai-chat-source-banner--screenshot,
+.site-shell[data-theme='dark'] .ai-chat-screenshot-card {
+  background:
+    radial-gradient(circle at top left, rgba(110, 168, 255, 0.18), transparent 44%),
+    radial-gradient(circle at bottom right, rgba(84, 209, 132, 0.14), transparent 46%),
+    rgba(17, 26, 37, 0.92);
+}
+
+.site-shell[data-theme='dark'] .ai-chat-link-field__control {
+  background: rgba(16, 25, 35, 0.9);
+}
+
+.site-shell[data-theme='dark'] .ai-chat-link-field__badge {
+  background: rgba(125, 139, 153, 0.2);
+  color: #d0dae2;
+}
+
 .site-shell[data-theme='dark'] .ai-chat-source-card--screenshot .ai-chat-source-card__emoji {
   background: linear-gradient(180deg, rgba(84, 209, 132, 0.26), rgba(57, 179, 107, 0.16));
   color: #9ce8bf;
@@ -6333,6 +6649,28 @@ button.checklist-batch-hero-card__lead-compact {
   .ai-chat-summary-card__item {
     align-items: flex-start;
     flex-wrap: wrap;
+  }
+
+  .ai-chat-summary-card__media {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .ai-chat-screenshot-card__preview,
+  .ai-chat-screenshot-card__preview img,
+  .ai-chat-screenshot-card__empty {
+    min-height: 204px;
+  }
+
+  .ai-chat-screenshot-card__actions {
+    flex-direction: column;
+  }
+
+  .ai-chat-screenshot-card__actions .button {
+    width: 100%;
+  }
+
+  .ai-chat-link-field__control {
+    grid-template-columns: minmax(0, 1fr) 34px;
   }
 
   .ai-chat-summary-card__item .button {

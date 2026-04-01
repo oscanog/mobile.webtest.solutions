@@ -1,4 +1,4 @@
-import { useDeferredValue, useEffect, useMemo, useRef, useState, type ChangeEvent, type KeyboardEvent, type ReactNode, type RefObject } from 'react'
+import { useDeferredValue, useEffect, useEffectEvent, useMemo, useRef, useState, type ChangeEvent, type KeyboardEvent, type ReactNode, type RefObject } from 'react'
 import { Link, useLocation, useNavigate, useOutletContext, useParams, useSearchParams } from 'react-router-dom'
 import { useAuth } from '../../auth-context'
 import { AppTopBar, type AppShellOutletContext } from '../../components/layout'
@@ -50,6 +50,22 @@ type SummaryRow = {
   value: string
   step: Exclude<FlowStep, 5>
   href?: string
+}
+
+type SummaryMediaPreview = {
+  label: string
+  name: string
+  meta: string
+  src: string
+  alt: string
+}
+
+type LinkVerificationTone = 'idle' | 'checking' | 'success' | 'error'
+
+type LinkVerificationState = {
+  tone: LinkVerificationTone
+  icon: string
+  label: string
 }
 
 type ThreadStatusTone = 'draft' | 'review' | 'complete' | 'muted'
@@ -129,8 +145,9 @@ function createEmptyDraftForm(sourceMode: AIChatSourceMode = 'screenshot'): Draf
   }
 }
 
-const flowSteps: Array<{ step: FlowStep; label: string; icon: 'projects' | 'checklist' | 'activity' | 'globe' | 'chat' }> = [
-  { step: 1, label: 'Link', icon: 'globe' },
+const allowedScreenshotMimeTypes = new Set(['image/png', 'image/jpeg'])
+
+const trailingFlowSteps: Array<{ step: Exclude<FlowStep, 1>; label: string; icon: 'projects' | 'checklist' | 'activity' | 'chat' }> = [
   { step: 2, label: 'Project', icon: 'projects' },
   { step: 3, label: 'Batch', icon: 'checklist' },
   { step: 4, label: 'Module', icon: 'activity' },
@@ -151,6 +168,17 @@ const qaSectionHeadingMap = new Map<string, string>([
 
 function normalizeSourceMode(value: string | null | undefined, fallback: AIChatSourceMode = 'screenshot'): AIChatSourceMode {
   return value === 'link' ? 'link' : fallback
+}
+
+function buildFlowSteps(sourceMode: AIChatSourceMode): Array<{ step: FlowStep; label: string; icon: 'projects' | 'checklist' | 'activity' | 'globe' | 'chat' | 'image' }> {
+  return [
+    {
+      step: 1,
+      label: sourceMode === 'screenshot' ? 'Screenshot' : 'Link',
+      icon: sourceMode === 'screenshot' ? 'image' : 'globe',
+    },
+    ...trailingFlowSteps,
+  ]
 }
 
 function sourceModeRequiresAttachments(sourceMode: AIChatSourceMode) {
@@ -175,6 +203,12 @@ function sourceModeComposerHelperText(sourceMode: AIChatSourceMode, isReady: boo
   return sourceModeRequiresAttachments(sourceMode)
     ? 'At least one image is required for each new checklist draft request.'
     : 'This source mode works from the saved page link. Screenshots are not required.'
+}
+
+function wizardComposerHelperText(sourceMode: AIChatSourceMode) {
+  return sourceMode === 'link'
+    ? 'This first draft will use the saved page link. Screenshots are not required.'
+    : 'Your setup screenshot is already attached for this first screenshot-based draft.'
 }
 
 function isPreviewAcceptedForLink(status: string) {
@@ -212,6 +246,10 @@ function formatFileSize(size: number) {
     return `${Math.round(size / 1024)} KB`
   }
   return `${(size / (1024 * 1024)).toFixed(1)} MB`
+}
+
+function isAllowedScreenshotFile(file: File) {
+  return allowedScreenshotMimeTypes.has((file.type || '').toLowerCase()) || /\.(png|jpe?g)$/i.test(file.name)
 }
 
 function createClientRequestId() {
@@ -550,6 +588,18 @@ function buildSummaryRows(form: DraftFormState, projects: ProjectSummary[], sele
   }
 }
 
+function buildFallbackPagePreview(pageUrl: string, message: string): AIChatPageLinkPreview {
+  return {
+    page_url: pageUrl,
+    status: 'unreachable',
+    page_title: '',
+    excerpt: '',
+    warning_message: message,
+    requires_credentials: false,
+    credentials_saved: false,
+  }
+}
+
 function buildThreadTitle(form: DraftFormState, selectedProject: ProjectSummary | null, selectedBatch: ChecklistBatch | null) {
   if (form.targetMode === 'existing') {
     return selectedBatch?.module_name || selectedBatch?.title || selectedProject?.name || 'New chat'
@@ -600,6 +650,66 @@ function previewTone(status: string): 'success' | 'alert' | 'default' {
     return 'alert'
   }
   return 'default'
+}
+
+function getLinkVerificationState({
+  pageUrl,
+  previewPending,
+  pageLinkPreview,
+}: {
+  pageUrl: string
+  previewPending: boolean
+  pageLinkPreview: AIChatPageLinkPreview | null
+}): LinkVerificationState {
+  const trimmedPageUrl = pageUrl.trim()
+
+  if (!trimmedPageUrl) {
+    return {
+      tone: 'idle',
+      icon: '...',
+      label: 'The link is still needed in via screenshot so testers can quickly reopen the exact page later.',
+    }
+  }
+
+  if (!isValidPageUrl(trimmedPageUrl)) {
+    return {
+      tone: 'error',
+      icon: 'x',
+      label: 'Use a full http:// or https:// link so BugCatcher can verify it.',
+    }
+  }
+
+  if (previewPending) {
+    return {
+      tone: 'checking',
+      icon: '...',
+      label: 'Checking the page link now...',
+    }
+  }
+
+  if (pageLinkPreview?.page_url === trimmedPageUrl) {
+    if (isPreviewAcceptedForLink(pageLinkPreview.status)) {
+      return {
+        tone: 'success',
+        icon: 'check',
+        label: 'Verified. Testers will be able to reopen this page from the saved shortcut later.',
+      }
+    }
+
+    if (pageLinkPreview.status) {
+      return {
+        tone: 'error',
+        icon: 'x',
+        label: pageLinkPreview.warning_message || `${formatPreviewStatusLabel(pageLinkPreview.status)}. Update the page link and try again.`,
+      }
+    }
+  }
+
+  return {
+    tone: 'idle',
+    icon: '...',
+    label: 'Waiting to verify this page link.',
+  }
 }
 
 function normalizePositiveInt(value: string | null) {
@@ -751,10 +861,12 @@ function AIChatHistoryCard({
   )
 }
 
-function AIChatProgress({ currentStep }: { currentStep: FlowStep }) {
+function AIChatProgress({ currentStep, sourceMode }: { currentStep: FlowStep; sourceMode: AIChatSourceMode }) {
+  const steps = buildFlowSteps(sourceMode)
+
   return (
     <div className="ai-chat-flow__progress">
-      {flowSteps.map((item) => {
+      {steps.map((item) => {
         const isComplete = item.step < currentStep
         const isActive = item.step === currentStep
 
@@ -774,18 +886,22 @@ function AIChatProgress({ currentStep }: { currentStep: FlowStep }) {
 function AIChatSummaryCard({
   modeLabel,
   rows,
+  mediaPreview,
   expanded,
   locked,
   onToggle,
   onEditStep,
+  onMediaPreviewOpen,
   showToggle = true,
 }: {
   modeLabel: string
   rows: SummaryRow[]
+  mediaPreview?: SummaryMediaPreview | null
   expanded: boolean
   locked: boolean
   onToggle: () => void
   onEditStep?: (step: Exclude<FlowStep, 5>) => void
+  onMediaPreviewOpen?: () => void
   showToggle?: boolean
 }) {
   return (
@@ -806,6 +922,27 @@ function AIChatSummaryCard({
       {locked ? <p className="ai-chat-summary-card__note">This chat is locked because at least one generated checklist item was already approved.</p> : null}
       {expanded ? (
         <div className="ai-chat-summary-card__grid">
+          {mediaPreview ? (
+            <article className="ai-chat-summary-card__media">
+              <button
+                type="button"
+                className="ai-chat-summary-card__media-button"
+                onClick={onMediaPreviewOpen}
+                aria-label={`Open ${mediaPreview.label.toLowerCase()} preview`}
+              >
+                <img src={mediaPreview.src} alt={mediaPreview.alt} loading="lazy" />
+                <span className="ai-chat-summary-card__media-overlay">Tap to preview</span>
+              </button>
+              <div className="ai-chat-summary-card__media-copy">
+                <div className="ai-chat-summary-card__item-label">
+                  <span>{mediaPreview.label}</span>
+                  <span className="ai-chat-summary-card__mode-badge">1 photo</span>
+                </div>
+                <strong>{mediaPreview.name}</strong>
+                <span>{mediaPreview.meta}</span>
+              </div>
+            </article>
+          ) : null}
           {rows.map((row) => (
             <article key={`${row.label}-${row.step}`} className="ai-chat-summary-card__item">
               <div className="ai-chat-summary-card__item-copy">
@@ -831,6 +968,49 @@ function AIChatSummaryCard({
         </div>
       ) : null}
     </section>
+  )
+}
+
+function AIChatImageLightbox({
+  open,
+  src,
+  alt,
+  onClose,
+}: {
+  open: boolean
+  src: string
+  alt: string
+  onClose: () => void
+}) {
+  useEffect(() => {
+    if (!open) {
+      return
+    }
+
+    const handleKeyDown = (event: globalThis.KeyboardEvent) => {
+      if (event.key === 'Escape') {
+        onClose()
+      }
+    }
+
+    window.addEventListener('keydown', handleKeyDown)
+    return () => window.removeEventListener('keydown', handleKeyDown)
+  }, [onClose, open])
+
+  if (!open) {
+    return null
+  }
+
+  return (
+    <div className="ai-chat-lightbox" role="dialog" aria-modal="true" aria-label="Screenshot preview">
+      <button type="button" className="ai-chat-lightbox__backdrop" aria-label="Close screenshot preview" onClick={onClose} />
+      <div className="ai-chat-lightbox__dialog">
+        <button type="button" className="ai-chat-lightbox__close" aria-label="Close screenshot preview" onClick={onClose}>
+          x
+        </button>
+        <img className="ai-chat-lightbox__image" src={src} alt={alt} />
+      </div>
+    </div>
   )
 }
 
@@ -869,8 +1049,10 @@ function AIChatConversation({
     if (!target) {
       return
     }
+
+    const scrollTarget = target
     const syncScroll = () => {
-      target.scrollTop = target.scrollHeight
+      scrollTarget.scrollTo({ top: scrollTarget.scrollHeight })
     }
     syncScroll()
     const frame = window.requestAnimationFrame(syncScroll)
@@ -1046,6 +1228,7 @@ function AIChatComposer({
   sourceMode,
   composer,
   attachments,
+  allowAttachments,
   pending,
   canSend,
   disabled,
@@ -1058,6 +1241,7 @@ function AIChatComposer({
   sourceMode: AIChatSourceMode
   composer: string
   attachments: File[]
+  allowAttachments?: boolean
   pending: boolean
   canSend: boolean
   disabled: boolean
@@ -1069,7 +1253,7 @@ function AIChatComposer({
 }) {
   const textareaRef = useRef<HTMLTextAreaElement | null>(null)
   const fileInputRef = useRef<HTMLInputElement | null>(null)
-  const allowAttachments = sourceModeRequiresAttachments(sourceMode)
+  const canAttachFiles = allowAttachments ?? sourceModeRequiresAttachments(sourceMode)
 
   useEffect(() => {
     const textarea = textareaRef.current
@@ -1099,7 +1283,7 @@ function AIChatComposer({
 
   return (
     <div className="ai-chat-compose">
-      {attachments.length ? (
+      {canAttachFiles && attachments.length ? (
         <div className="ai-chat-selected-files">
           {attachments.map((file) => (
             <span key={`${file.name}-${file.size}`} className="pill">
@@ -1109,7 +1293,7 @@ function AIChatComposer({
         </div>
       ) : null}
       <div className="ai-chat-compose__input">
-        {allowAttachments ? (
+        {canAttachFiles ? (
           <button
           type="button"
           className="ai-chat-compose__media-button"
@@ -1142,7 +1326,7 @@ function AIChatComposer({
         </button>
       </div>
       <p className="ai-chat-compose__note">{helperText}</p>
-      {allowAttachments ? <input ref={fileInputRef} type="file" accept="image/png,image/jpeg,image/webp,image/gif" multiple hidden onChange={handleFileChange} /> : null}
+      {canAttachFiles ? <input ref={fileInputRef} type="file" accept="image/png,image/jpeg,image/webp,image/gif" multiple hidden onChange={handleFileChange} /> : null}
     </div>
   )
 }
@@ -1383,19 +1567,23 @@ function AIChatCreateView({
   const [draftForm, setDraftForm] = useState<DraftFormState>(() => createEmptyDraftForm(initialSourceMode))
   const [step, setStep] = useState<FlowStep>(queryStep)
   const [composer, setComposer] = useState('')
-  const [attachments, setAttachments] = useState<File[]>([])
+  const [sourceScreenshot, setSourceScreenshot] = useState<File | null>(null)
+  const [sourceScreenshotPreviewUrl, setSourceScreenshotPreviewUrl] = useState('')
   const [summaryExpanded, setSummaryExpanded] = useState(true)
   const [sourceChooserOpen, setSourceChooserOpen] = useState(false)
   const [pageLinkPreview, setPageLinkPreview] = useState<AIChatPageLinkPreview | null>(null)
   const [previewPending, setPreviewPending] = useState(false)
   const [basicAuthUsername, setBasicAuthUsername] = useState('')
   const [basicAuthPassword, setBasicAuthPassword] = useState('')
+  const [lightboxOpen, setLightboxOpen] = useState(false)
   const [loadingProjects, setLoadingProjects] = useState(true)
   const [loadingBatches, setLoadingBatches] = useState(false)
   const [loadingThread, setLoadingThread] = useState(Boolean(editThreadId))
   const [error, setError] = useState('')
   const [pending, setPending] = useState(false)
   const draftInFlightRef = useRef(false)
+  const sourceFileInputRef = useRef<HTMLInputElement | null>(null)
+  const autoPreviewSignatureRef = useRef('')
 
   const selectedProject = useMemo(() => projects.find((project) => project.id === draftForm.projectId) ?? null, [draftForm.projectId, projects])
   const selectedExistingBatch = useMemo(
@@ -1409,11 +1597,29 @@ function AIChatCreateView({
   const contextLocked = Boolean(editingThread?.draft_context.is_locked)
   const contextChanged = Boolean(editingThread && !formMatchesContext(draftForm, editingThread.draft_context))
   const sourceAvailability = getSourceModeAvailability(bootstrap, draftForm.sourceMode)
+  const screenshotRequired = sourceModeRequiresAttachments(draftForm.sourceMode)
+  const linkVerificationState = useMemo(
+    () => getLinkVerificationState({ pageUrl: draftForm.pageUrl, previewPending, pageLinkPreview }),
+    [draftForm.pageUrl, previewPending, pageLinkPreview],
+  )
+  const summaryMediaPreview = useMemo<SummaryMediaPreview | null>(() => {
+    if (!sourceScreenshot || !sourceScreenshotPreviewUrl) {
+      return null
+    }
+
+    return {
+      label: 'Source screenshot',
+      name: sourceScreenshot.name,
+      meta: `${formatFileSize(sourceScreenshot.size)} | Opens in a mobile-first lightbox preview.`,
+      src: sourceScreenshotPreviewUrl,
+      alt: sourceScreenshot.name,
+    }
+  }, [sourceScreenshot, sourceScreenshotPreviewUrl])
   const canSend = Boolean(
     bootstrap.enabled &&
     sourceAvailability.enabled &&
     !pending &&
-    (!sourceModeRequiresAttachments(draftForm.sourceMode) || attachments.length > 0),
+    (!screenshotRequired || Boolean(sourceScreenshot)),
   )
 
   useEffect(() => {
@@ -1540,11 +1746,19 @@ function AIChatCreateView({
   }, [accessToken, activeOrgId, draftForm.projectId])
 
   useEffect(() => {
-    if (draftForm.sourceMode !== 'link' || !attachments.length) {
+    if (!sourceScreenshot) {
+      setSourceScreenshotPreviewUrl('')
+      autoPreviewSignatureRef.current = ''
       return
     }
-    setAttachments([])
-  }, [attachments.length, draftForm.sourceMode])
+
+    const nextPreviewUrl = URL.createObjectURL(sourceScreenshot)
+    setSourceScreenshotPreviewUrl(nextPreviewUrl)
+
+    return () => {
+      URL.revokeObjectURL(nextPreviewUrl)
+    }
+  }, [sourceScreenshot])
 
   useEffect(() => {
     if (draftForm.targetMode !== 'existing' || !selectedExistingBatch?.page_url || draftForm.pageUrl.trim()) {
@@ -1565,13 +1779,7 @@ function AIChatCreateView({
       return
     }
     setPageLinkPreview(contextPreview)
-  }, [
-    draftForm.pageUrl,
-    editingThread?.draft_context.has_saved_link_credentials,
-    editingThread?.draft_context.page_link_status,
-    editingThread?.draft_context.page_link_warning,
-    editingThread?.draft_context.page_url,
-  ])
+  }, [draftForm.pageUrl, editingThread?.draft_context])
 
   useEffect(() => {
     if (!pageLinkPreview || pageLinkPreview.page_url === draftForm.pageUrl.trim()) {
@@ -1579,6 +1787,40 @@ function AIChatCreateView({
     }
     setPageLinkPreview(null)
   }, [draftForm.pageUrl, pageLinkPreview])
+
+  useEffect(() => {
+    if (sourceScreenshot) {
+      return
+    }
+    setLightboxOpen(false)
+  }, [sourceScreenshot])
+
+  useEffect(() => {
+    if (draftForm.sourceMode !== 'screenshot' || step !== 1 || !sourceScreenshot) {
+      if (draftForm.sourceMode !== 'screenshot' || !sourceScreenshot) {
+        autoPreviewSignatureRef.current = ''
+      }
+      return
+    }
+
+    const trimmedPageUrl = draftForm.pageUrl.trim()
+    if (!trimmedPageUrl || !isValidPageUrl(trimmedPageUrl)) {
+      autoPreviewSignatureRef.current = ''
+      return
+    }
+
+    const signature = `${trimmedPageUrl}|${basicAuthUsername.trim()}|${basicAuthPassword}`
+    if (previewPending || autoPreviewSignatureRef.current === signature) {
+      return
+    }
+
+    const timeoutId = window.setTimeout(() => {
+      autoPreviewSignatureRef.current = signature
+      triggerAutoPageLinkPreview()
+    }, 550)
+
+    return () => window.clearTimeout(timeoutId)
+  }, [basicAuthPassword, basicAuthUsername, draftForm.pageUrl, draftForm.sourceMode, previewPending, sourceScreenshot, step])
 
   const handleBack = () => {
     if (step === 1) {
@@ -1592,8 +1834,13 @@ function AIChatCreateView({
     if (!sourceAvailability.enabled) {
       return sourceAvailability.warning || 'This source mode is not currently available.'
     }
-    if (currentStep === 1 && !isValidPageUrl(draftForm.pageUrl.trim())) {
-      return 'Enter a valid page link before continuing.'
+    if (currentStep === 1) {
+      if (screenshotRequired && !sourceScreenshot) {
+        return 'Upload one PNG or JPG screenshot before continuing.'
+      }
+      if (!isValidPageUrl(draftForm.pageUrl.trim())) {
+        return 'Enter a valid page link before continuing.'
+      }
     }
     if (currentStep === 2 && draftForm.projectId <= 0) {
       return 'Select a project before continuing.'
@@ -1621,16 +1868,18 @@ function AIChatCreateView({
     if (
       sourceMode === 'link' &&
       draftForm.sourceMode !== 'link' &&
-      attachments.length > 0 &&
-      !window.confirm('Switching to Via link will clear the uploaded screenshots for this draft. Continue?')
+      sourceScreenshot &&
+      !window.confirm('Switching to Via link will clear the uploaded screenshot for this draft. Continue?')
     ) {
       return
     }
 
     setDraftForm((current) => ({ ...current, sourceMode }))
     if (sourceMode === 'link') {
-      setAttachments([])
+      setSourceScreenshot(null)
+      setLightboxOpen(false)
     }
+    autoPreviewSignatureRef.current = ''
     setSourceChooserOpen(false)
     setError('')
   }
@@ -1666,19 +1915,22 @@ function AIChatCreateView({
     return { threadId, thread: result.thread }
   }
 
-  const ensurePageLinkPreview = async () => {
+  const ensurePageLinkPreview = async ({ silent = false }: { silent?: boolean } = {}) => {
     const trimmedPageUrl = draftForm.pageUrl.trim()
     if (!isValidPageUrl(trimmedPageUrl)) {
-      setError('Enter a valid page link before continuing.')
+      if (!silent) {
+        setError('Enter a valid page link before continuing.')
+      }
       return null
     }
     if (!sourceAvailability.enabled) {
-      setError(sourceAvailability.warning || 'This source mode is not currently available.')
+      if (!silent) {
+        setError(sourceAvailability.warning || 'This source mode is not currently available.')
+      }
       return null
     }
 
     setPreviewPending(true)
-    setError('')
 
     try {
       const { threadId } = await ensureThread()
@@ -1689,13 +1941,47 @@ function AIChatCreateView({
       })
       setEditingThread(result.thread)
       setPageLinkPreview(result.page_link_preview)
+      setError('')
       return result.page_link_preview
     } catch (previewError) {
-      setError(getErrorMessage(previewError, 'Unable to validate this page link right now.'))
+      const message = getErrorMessage(previewError, 'Unable to validate this page link right now.')
+      setPageLinkPreview(buildFallbackPagePreview(trimmedPageUrl, message))
+      if (!silent) {
+        setError(message)
+      }
       return null
     } finally {
       setPreviewPending(false)
     }
+  }
+
+  const triggerAutoPageLinkPreview = useEffectEvent(() => {
+    void ensurePageLinkPreview({ silent: true })
+  })
+
+  const handleSourceScreenshotChange = (event: ChangeEvent<HTMLInputElement>) => {
+    const nextFile = event.target.files?.[0]
+    event.target.value = ''
+
+    if (!nextFile) {
+      return
+    }
+
+    if (!isAllowedScreenshotFile(nextFile)) {
+      setError('Upload one PNG or JPG screenshot only.')
+      return
+    }
+
+    setSourceScreenshot(nextFile)
+    setLightboxOpen(false)
+    autoPreviewSignatureRef.current = ''
+    setError('')
+  }
+
+  const handleRemoveSourceScreenshot = () => {
+    setSourceScreenshot(null)
+    setLightboxOpen(false)
+    autoPreviewSignatureRef.current = ''
   }
 
   const handleNext = async () => {
@@ -1752,8 +2038,8 @@ function AIChatCreateView({
       setError(preview?.warning_message || 'Validate the page link before drafting checklist items.')
       return
     }
-    if (sourceModeRequiresAttachments(draftForm.sourceMode) && !attachments.length) {
-      setError('Upload at least one image before generating checklist draft items.')
+    if (screenshotRequired && !sourceScreenshot) {
+      setError('Upload one PNG or JPG screenshot before generating checklist draft items.')
       return
     }
 
@@ -1768,7 +2054,7 @@ function AIChatCreateView({
         threadId,
         clientRequestId,
         message: composer.trim(),
-        attachments: [...attachments],
+        attachments: sourceScreenshot ? [sourceScreenshot] : [],
         sourceMode: draftForm.sourceMode,
       }
       navigate(`/app/ai-chat/threads/${threadId}`, { replace: true, state: { startDraft } })
@@ -1796,70 +2082,160 @@ function AIChatCreateView({
         return (
           <section className="ai-chat-flow-card">
             <div className="ai-chat-flow-card__header">
-              <h2>Page link</h2>
-              <p>Paste the exact page BugCatcher should connect to this checklist draft.</p>
+              <h2>{draftForm.sourceMode === 'screenshot' ? 'Screenshot' : 'Page link'}</h2>
+              <p>
+                {draftForm.sourceMode === 'screenshot'
+                  ? 'Upload one screenshot first, then save the matching page link underneath it.'
+                  : 'Paste the exact page BugCatcher should connect to this checklist draft.'}
+              </p>
             </div>
-            <div className="ai-chat-source-banner">
+            <div className={`ai-chat-source-banner ${draftForm.sourceMode === 'screenshot' ? 'ai-chat-source-banner--screenshot' : ''}`}>
               <div className="ai-chat-source-banner__copy">
                 <span className="pill ai-chat-source-pill">{sourceModeLabel(draftForm.sourceMode)}</span>
-                <small>
-                  {draftForm.sourceMode === 'link'
-                    ? 'BugCatcher will analyze this page link directly. Screenshots are not required.'
-                    : 'BugCatcher will use this page link together with your uploaded screenshots in chat.'}
-                </small>
               </div>
               <button type="button" className="button button--ghost button--tiny" onClick={() => setSourceChooserOpen(true)}>
                 Change source
               </button>
             </div>
             {!sourceAvailability.enabled && sourceAvailability.warning ? <FormMessage tone="error">{sourceAvailability.warning}</FormMessage> : null}
-            <div className="inline-form ai-chat-link-step__inputs">
-              <input
-                className="input-inline"
-                value={draftForm.pageUrl}
-                onChange={(event) => {
-                  setDraftForm((current) => ({ ...current, pageUrl: event.target.value }))
-                  setError('')
-                }}
-                placeholder="https://..."
-                inputMode="url"
-              />
-              <button type="button" className="button button--ghost" onClick={() => void ensurePageLinkPreview()} disabled={previewPending || !draftForm.pageUrl.trim()}>
-                {previewPending ? 'Checking...' : 'Check link'}
-              </button>
-            </div>
-            {pageLinkPreview ? (
-              <div className={`ai-chat-link-preview ai-chat-link-preview--${previewTone(pageLinkPreview.status)}`}>
-                <div className="ai-chat-link-preview__top">
-                  <strong>{formatPreviewStatusLabel(pageLinkPreview.status)}</strong>
-                  {pageLinkPreview.page_title ? <span>{pageLinkPreview.page_title}</span> : null}
+            {draftForm.sourceMode === 'screenshot' ? (
+              <div className="ai-chat-screenshot-step">
+                <div className={`ai-chat-screenshot-card ${sourceScreenshotPreviewUrl ? 'has-image' : ''}`}>
+                  <div className="ai-chat-screenshot-card__preview">
+                    {sourceScreenshotPreviewUrl ? (
+                      <img src={sourceScreenshotPreviewUrl} alt={sourceScreenshot?.name || 'Uploaded screenshot'} loading="lazy" />
+                    ) : (
+                      <div className="ai-chat-screenshot-card__empty">
+                        <span className="icon-wrap" aria-hidden="true">
+                          <Icon name="image" />
+                        </span>
+                        <strong>Upload one PNG or JPG screenshot.</strong>
+                        <p>This single photo becomes the visual source for your first screenshot-based draft.</p>
+                      </div>
+                    )}
+                  </div>
+                  <div className="ai-chat-screenshot-card__footer">
+                    <div className="ai-chat-screenshot-card__meta">
+                      <span className="pill ai-chat-source-pill">Only 1 pic</span>
+                      <strong>{sourceScreenshot ? sourceScreenshot.name : 'No screenshot uploaded yet'}</strong>
+                      <small>
+                        {sourceScreenshot
+                          ? `${formatFileSize(sourceScreenshot.size)} | This image will be attached automatically in the last step.`
+                          : ''}
+                      </small>
+                    </div>
+                    <div className="ai-chat-screenshot-card__actions">
+                      <button type="button" className="button button--primary" onClick={() => sourceFileInputRef.current?.click()}>
+                        {sourceScreenshot ? 'Replace photo' : 'Upload photo'}
+                      </button>
+                      {sourceScreenshot ? (
+                        <button type="button" className="button button--ghost" onClick={handleRemoveSourceScreenshot}>
+                          Remove
+                        </button>
+                      ) : null}
+                    </div>
+                    <input ref={sourceFileInputRef} type="file" accept="image/png,image/jpeg" hidden onChange={handleSourceScreenshotChange} />
+                  </div>
                 </div>
-                {pageLinkPreview.warning_message ? <p>{pageLinkPreview.warning_message}</p> : null}
-                {pageLinkPreview.excerpt ? <p className="ai-chat-link-preview__excerpt">{pageLinkPreview.excerpt}</p> : null}
+                <div className="ai-chat-link-step__stack">
+                  <label className="ai-chat-link-field">
+                    <span className="ai-chat-link-field__label">Page link</span>
+                    <div className={`ai-chat-link-field__control ai-chat-link-field__control--${linkVerificationState.tone}`}>
+                      <input
+                        className="input-inline ai-chat-link-field__input"
+                        value={draftForm.pageUrl}
+                        onChange={(event) => {
+                          autoPreviewSignatureRef.current = ''
+                          setDraftForm((current) => ({ ...current, pageUrl: event.target.value }))
+                          setError('')
+                        }}
+                        placeholder="https://..."
+                        inputMode="url"
+                      />
+                      <span
+                        className={`ai-chat-link-field__badge ai-chat-link-field__badge--${linkVerificationState.tone}`}
+                        aria-label={linkVerificationState.label}
+                        title={linkVerificationState.label}
+                      >
+                        {linkVerificationState.icon === 'check' ? '✓' : linkVerificationState.icon === 'x' ? '×' : '...'}
+                      </span>
+                    </div>
+                    <small className={`ai-chat-link-field__hint ai-chat-link-field__hint--${linkVerificationState.tone}`}>{linkVerificationState.label}</small>
+                  </label>
+                  {pageLinkPreview ? (
+                    <div className={`ai-chat-link-preview ai-chat-link-preview--${previewTone(pageLinkPreview.status)}`}>
+                      <div className="ai-chat-link-preview__top">
+                        <strong>{formatPreviewStatusLabel(pageLinkPreview.status)}</strong>
+                        {pageLinkPreview.page_title ? <span>{pageLinkPreview.page_title}</span> : null}
+                      </div>
+                      {pageLinkPreview.warning_message ? <p>{pageLinkPreview.warning_message}</p> : null}
+                      {pageLinkPreview.excerpt ? <p className="ai-chat-link-preview__excerpt">{pageLinkPreview.excerpt}</p> : null}
+                    </div>
+                  ) : null}
+                </div>
               </div>
             ) : (
-              <div className="ai-chat-inline-note ai-chat-inline-note--info">
-                Check the link now so BugCatcher can detect auth walls before you finish the draft setup.
+              <div className="inline-form ai-chat-link-step__inputs">
+                <input
+                  className="input-inline"
+                  value={draftForm.pageUrl}
+                  onChange={(event) => {
+                    autoPreviewSignatureRef.current = ''
+                    setDraftForm((current) => ({ ...current, pageUrl: event.target.value }))
+                    setError('')
+                  }}
+                  placeholder="https://..."
+                  inputMode="url"
+                />
+                <button type="button" className="button button--ghost" onClick={() => void ensurePageLinkPreview()} disabled={previewPending || !draftForm.pageUrl.trim()}>
+                  {previewPending ? 'Checking...' : 'Check link'}
+                </button>
               </div>
             )}
+            {draftForm.sourceMode === 'link' ? (
+              pageLinkPreview ? (
+                <div className={`ai-chat-link-preview ai-chat-link-preview--${previewTone(pageLinkPreview.status)}`}>
+                  <div className="ai-chat-link-preview__top">
+                    <strong>{formatPreviewStatusLabel(pageLinkPreview.status)}</strong>
+                    {pageLinkPreview.page_title ? <span>{pageLinkPreview.page_title}</span> : null}
+                  </div>
+                  {pageLinkPreview.warning_message ? <p>{pageLinkPreview.warning_message}</p> : null}
+                  {pageLinkPreview.excerpt ? <p className="ai-chat-link-preview__excerpt">{pageLinkPreview.excerpt}</p> : null}
+                </div>
+              ) : (
+                <div className="ai-chat-inline-note ai-chat-inline-note--info">
+                  Check the link now so BugCatcher can detect auth walls before you finish the draft setup.
+                </div>
+              )
+            ) : null}
             {pageLinkPreview?.status === 'auth_required_basic' ? (
               <div className="ai-chat-link-auth">
                 <div className="ai-chat-link-auth__copy">
                   <strong>HTTP Basic Auth required</strong>
-                  <p>Enter the credentials for this page, then check the link again.</p>
+                  <p>
+                    {draftForm.sourceMode === 'screenshot'
+                      ? 'Enter the credentials for this page. BugCatcher will recheck the link automatically after you finish typing.'
+                      : 'Enter the credentials for this page, then check the link again.'}
+                  </p>
                 </div>
                 <div className="inline-form">
                   <input
                     className="input-inline"
                     value={basicAuthUsername}
-                    onChange={(event) => setBasicAuthUsername(event.target.value)}
+                    onChange={(event) => {
+                      autoPreviewSignatureRef.current = ''
+                      setBasicAuthUsername(event.target.value)
+                    }}
                     placeholder="Username"
                     autoComplete="username"
                   />
                   <input
                     className="input-inline"
                     value={basicAuthPassword}
-                    onChange={(event) => setBasicAuthPassword(event.target.value)}
+                    onChange={(event) => {
+                      autoPreviewSignatureRef.current = ''
+                      setBasicAuthPassword(event.target.value)
+                    }}
                     placeholder="Password"
                     type="password"
                     autoComplete="current-password"
@@ -2004,7 +2380,16 @@ function AIChatCreateView({
           <div className="ai-chat-thread-stage">
             {contextChanged ? <FormMessage tone="info">Your edited target summary will be saved with the next draft request.</FormMessage> : null}
             {editingThread?.draft_context.page_link_warning ? <FormMessage tone="info">{editingThread.draft_context.page_link_warning}</FormMessage> : null}
-            <AIChatSummaryCard modeLabel={summary.modeLabel} rows={summary.rows} expanded={summaryExpanded} locked={contextLocked} onToggle={() => setSummaryExpanded((current) => !current)} onEditStep={handleEditStep} />
+            <AIChatSummaryCard
+              modeLabel={summary.modeLabel}
+              rows={summary.rows}
+              mediaPreview={summaryMediaPreview}
+              expanded={summaryExpanded}
+              locked={contextLocked}
+              onToggle={() => setSummaryExpanded((current) => !current)}
+              onEditStep={handleEditStep}
+              onMediaPreviewOpen={summaryMediaPreview ? () => setLightboxOpen(true) : undefined}
+            />
             {editingThread?.messages.length ? (
               <section className="ai-chat-thread-stage__conversation">
                 <AIChatConversation thread={editingThread} assistantName={bootstrap.assistant_name || 'BugCatcher AI'} emptyTitle="" emptyMessage="" />
@@ -2013,14 +2398,15 @@ function AIChatCreateView({
             <AIChatComposer
               sourceMode={draftForm.sourceMode}
               composer={composer}
-              attachments={attachments}
+              attachments={[]}
+              allowAttachments={false}
               pending={pending}
               canSend={canSend}
               disabled={pending}
-              helperText={sourceModeComposerHelperText(draftForm.sourceMode, true)}
+              helperText={wizardComposerHelperText(draftForm.sourceMode)}
               placeholder={sourceModeComposerPlaceholder(draftForm.sourceMode)}
               onComposerChange={setComposer}
-              onAttachmentsChange={setAttachments}
+              onAttachmentsChange={() => undefined}
               onSend={() => void handleSend()}
             />
           </div>
@@ -2037,7 +2423,7 @@ function AIChatCreateView({
         actions={<ThemeToggle />}
       />
       <div className="ai-chat-page__body">
-        <AIChatProgress currentStep={step} />
+        <AIChatProgress currentStep={step} sourceMode={draftForm.sourceMode} />
         {error ? <FormMessage tone="error" onDismiss={() => setError('')}>{error}</FormMessage> : null}
         {loadingProjects || loadingThread ? (
           <section className="ai-chat-state-card">
@@ -2064,6 +2450,12 @@ function AIChatCreateView({
         open={sourceChooserOpen}
         onClose={() => setSourceChooserOpen(false)}
         onSelect={handleSelectSourceMode}
+      />
+      <AIChatImageLightbox
+        open={lightboxOpen && Boolean(summaryMediaPreview)}
+        src={summaryMediaPreview?.src || ''}
+        alt={summaryMediaPreview?.alt || 'Source screenshot'}
+        onClose={() => setLightboxOpen(false)}
       />
     </div>
   )
@@ -2394,6 +2786,15 @@ function AIChatThreadView({
     })
   }
 
+  const resumeRouteDraft = useEffectEvent((routeDraft: ThreadRouteDraftStart) => {
+    void startDraftRun({
+      message: routeDraft.message,
+      attachments: routeDraft.attachments,
+      sourceMode: routeDraft.sourceMode,
+      clientRequestId: routeDraft.clientRequestId,
+    })
+  })
+
   useEffect(() => {
     const routeState = (location.state as { startDraft?: ThreadRouteDraftStart } | null) ?? null
     const routeDraft = routeState?.startDraft
@@ -2406,12 +2807,7 @@ function AIChatThreadView({
 
     consumedRouteDraftRef.current = routeDraft.clientRequestId
     navigate(location.pathname, { replace: true, state: null })
-    void startDraftRun({
-      message: routeDraft.message,
-      attachments: routeDraft.attachments,
-      sourceMode: routeDraft.sourceMode,
-      clientRequestId: routeDraft.clientRequestId,
-    })
+    resumeRouteDraft(routeDraft)
   }, [activeThread, activeThreadId, location.pathname, location.state, navigate])
 
   const handleReviewAction = async (item: AIGeneratedChecklistItem, action: 'approve' | 'reject') => {

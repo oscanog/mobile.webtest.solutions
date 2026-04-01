@@ -74,6 +74,13 @@ export function Icon({ name }: { name: IconName }) {
       </>
     ),
     spark: <path d="M12 3l1.8 5.2L19 10l-5.2 1.8L12 17l-1.8-5.2L5 10l5.2-1.8L12 3Z" />,
+    image: (
+      <>
+        <rect x="3.5" y="5" width="17" height="14" rx="3" />
+        <circle cx="9" cy="10" r="1.6" />
+        <path d="m6.5 16 3.8-4.2 2.8 2.8 1.9-2 3.5 3.4" />
+      </>
+    ),
     settings: (
       <>
         <circle cx="12" cy="12" r="3" />
