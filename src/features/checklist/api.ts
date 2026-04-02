@@ -86,12 +86,27 @@ export interface ChecklistAttachment {
   id: number
   original_name: string
   file_path: string
+  file_url?: string
   mime_type?: string
   file_size?: number
   uploaded_by_name?: string | null
   created_at?: string
   created_at_iso?: string | null
   source_type?: string
+}
+
+export function getChecklistAttachmentUrl(attachment: ChecklistAttachment) {
+  const preferredUrl = attachment.file_url?.trim()
+  if (preferredUrl) {
+    return preferredUrl
+  }
+
+  const fallbackPath = attachment.file_path?.trim()
+  if (!fallbackPath) {
+    return ''
+  }
+
+  return /^(?:[a-z][a-z0-9+.-]*:)?\/\//i.test(fallbackPath) ? fallbackPath : ''
 }
 
 export interface ChecklistAssigneeOption {

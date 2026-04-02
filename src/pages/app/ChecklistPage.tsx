@@ -9,6 +9,7 @@ import {
   fetchChecklistBatch,
   fetchChecklistBatches,
   fetchChecklistItem,
+  getChecklistAttachmentUrl,
   updateChecklistBatch,
   updateChecklistItem,
   type ChecklistAttachment,
@@ -745,34 +746,42 @@ export function ChecklistBatchDetailPage() {
                 <>
                   {data.attachments.filter(isImageAttachment).length ? (
                     <div className="checklist-batch-gallery">
-                      {data.attachments.filter(isImageAttachment).map((attachment) => (
-                        <a
-                          key={attachment.id}
-                          className="checklist-batch-gallery__item"
-                          href={attachment.file_path || '#'}
-                          target={attachment.file_path ? '_blank' : undefined}
-                          rel={attachment.file_path ? 'noreferrer noopener' : undefined}
-                        >
-                          <img src={attachment.file_path} alt={attachment.original_name} loading="lazy" />
-                          <span>{attachment.original_name}</span>
-                        </a>
-                      ))}
+                      {data.attachments.filter(isImageAttachment).map((attachment) => {
+                        const attachmentUrl = getChecklistAttachmentUrl(attachment)
+
+                        return (
+                          <a
+                            key={attachment.id}
+                            className="checklist-batch-gallery__item"
+                            href={attachmentUrl || '#'}
+                            target={attachmentUrl ? '_blank' : undefined}
+                            rel={attachmentUrl ? 'noreferrer noopener' : undefined}
+                          >
+                            <img src={attachmentUrl} alt={attachment.original_name} loading="lazy" />
+                            <span>{attachment.original_name}</span>
+                          </a>
+                        )
+                      })}
                     </div>
                   ) : null}
                   {data.attachments.filter((attachment) => !isImageAttachment(attachment)).length ? (
                     <div className="checklist-attachment-list">
-                      {data.attachments.filter((attachment) => !isImageAttachment(attachment)).map((attachment) => (
-                        <a
-                          key={attachment.id}
-                          className="checklist-attachment"
-                          href={attachment.file_path || '#'}
-                          target={attachment.file_path ? '_blank' : undefined}
-                          rel={attachment.file_path ? 'noreferrer noopener' : undefined}
-                        >
-                          <strong>{attachment.original_name}</strong>
-                          <span>{attachment.uploaded_by_name || 'Unknown uploader'}</span>
-                        </a>
-                      ))}
+                      {data.attachments.filter((attachment) => !isImageAttachment(attachment)).map((attachment) => {
+                        const attachmentUrl = getChecklistAttachmentUrl(attachment)
+
+                        return (
+                          <a
+                            key={attachment.id}
+                            className="checklist-attachment"
+                            href={attachmentUrl || '#'}
+                            target={attachmentUrl ? '_blank' : undefined}
+                            rel={attachmentUrl ? 'noreferrer noopener' : undefined}
+                          >
+                            <strong>{attachment.original_name}</strong>
+                            <span>{attachment.uploaded_by_name || 'Unknown uploader'}</span>
+                          </a>
+                        )
+                      })}
                     </div>
                   ) : null}
                 </>

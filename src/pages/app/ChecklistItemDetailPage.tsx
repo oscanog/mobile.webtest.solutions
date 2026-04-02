@@ -15,6 +15,7 @@ import { DetailPair, Icon, SectionCard } from '../../components/ui'
 import {
   deleteChecklistItem,
   fetchChecklistItem,
+  getChecklistAttachmentUrl,
   uploadChecklistItemAttachments,
   updateChecklistItem,
   updateChecklistItemStatus,
@@ -114,7 +115,7 @@ function compactPageLinkLabel(pageUrl: string) {
 }
 
 function getAttachmentExtension(attachment: ChecklistAttachment) {
-  const source = attachment.original_name || attachment.file_path || ''
+  const source = attachment.original_name || attachment.file_url || attachment.file_path || ''
   const cleanSource = source.split('?')[0]
   const lastDot = cleanSource.lastIndexOf('.')
   if (lastDot < 0) {
@@ -418,6 +419,7 @@ export function ChecklistItemDetailPage() {
 
   const assignableTesters = data?.assignable_testers ?? []
   const hasAssignmentChanged = Number(assignmentUserId) !== (data?.item.assigned_to_user_id ?? 0)
+  const lightboxAttachmentUrl = lightboxAttachment ? getChecklistAttachmentUrl(lightboxAttachment) : ''
   const imageAttachments = data?.attachments.filter(isImageAttachment) ?? []
   const videoAttachments = data?.attachments.filter((attachment) => !isImageAttachment(attachment) && isVideoAttachment(attachment)) ?? []
   const fileAttachments = data?.attachments.filter((attachment) => !isImageAttachment(attachment) && !isVideoAttachment(attachment)) ?? []
@@ -886,22 +888,26 @@ export function ChecklistItemDetailPage() {
               {imageAttachments.length ? (
                 <SectionCard title="Image Evidence" subtitle={`${imageAttachments.length} image${imageAttachments.length === 1 ? '' : 's'}`}>
                   <div className="checklist-batch-gallery checklist-item-gallery">
-                    {imageAttachments.map((attachment) => (
-                      <button
-                        key={attachment.id}
-                        type="button"
-                        className="checklist-item-gallery__button"
-                        onClick={() => {
-                          if (attachment.file_path) {
-                            setLightboxAttachment(attachment)
-                          }
-                        }}
-                      >
-                        <img src={attachment.file_path} alt={attachment.original_name} loading="lazy" />
-                        <span>{attachment.original_name}</span>
-                        <small>{buildAttachmentMeta(attachment)}</small>
-                      </button>
-                    ))}
+                    {imageAttachments.map((attachment) => {
+                      const attachmentUrl = getChecklistAttachmentUrl(attachment)
+
+                      return (
+                        <button
+                          key={attachment.id}
+                          type="button"
+                          className="checklist-item-gallery__button"
+                          onClick={() => {
+                            if (attachmentUrl) {
+                              setLightboxAttachment(attachment)
+                            }
+                          }}
+                        >
+                          <img src={attachmentUrl} alt={attachment.original_name} loading="lazy" />
+                          <span>{attachment.original_name}</span>
+                          <small>{buildAttachmentMeta(attachment)}</small>
+                        </button>
+                      )
+                    })}
                   </div>
                 </SectionCard>
               ) : null}
@@ -909,17 +915,21 @@ export function ChecklistItemDetailPage() {
               {videoAttachments.length ? (
                 <SectionCard title="Video Evidence" subtitle={`${videoAttachments.length} video${videoAttachments.length === 1 ? '' : 's'}`}>
                   <div className="checklist-item-video-grid">
-                    {videoAttachments.map((attachment) => (
-                      <article key={attachment.id} className="checklist-item-video-card">
-                        <video controls preload="metadata">
-                          <source src={attachment.file_path} type={attachment.mime_type || undefined} />
-                        </video>
-                        <div className="checklist-item-video-card__meta">
-                          <strong>{attachment.original_name}</strong>
-                          <small>{buildAttachmentMeta(attachment)}</small>
-                        </div>
-                      </article>
-                    ))}
+                    {videoAttachments.map((attachment) => {
+                      const attachmentUrl = getChecklistAttachmentUrl(attachment)
+
+                      return (
+                        <article key={attachment.id} className="checklist-item-video-card">
+                          <video controls preload="metadata">
+                            <source src={attachmentUrl} type={attachment.mime_type || undefined} />
+                          </video>
+                          <div className="checklist-item-video-card__meta">
+                            <strong>{attachment.original_name}</strong>
+                            <small>{buildAttachmentMeta(attachment)}</small>
+                          </div>
+                        </article>
+                      )
+                    })}
                   </div>
                 </SectionCard>
               ) : null}
@@ -927,18 +937,22 @@ export function ChecklistItemDetailPage() {
               {fileAttachments.length ? (
                 <SectionCard title="Files" subtitle={`${fileAttachments.length} attachment${fileAttachments.length === 1 ? '' : 's'}`}>
                   <div className="checklist-attachment-list">
-                    {fileAttachments.map((attachment) => (
-                      <a
-                        key={attachment.id}
-                        className="checklist-attachment"
-                        href={attachment.file_path || '#'}
-                        target={attachment.file_path ? '_blank' : undefined}
-                        rel={attachment.file_path ? 'noreferrer noopener' : undefined}
-                      >
-                        <strong>{attachment.original_name}</strong>
-                        <span>{buildAttachmentMeta(attachment)}</span>
-                      </a>
-                    ))}
+                    {fileAttachments.map((attachment) => {
+                      const attachmentUrl = getChecklistAttachmentUrl(attachment)
+
+                      return (
+                        <a
+                          key={attachment.id}
+                          className="checklist-attachment"
+                          href={attachmentUrl || '#'}
+                          target={attachmentUrl ? '_blank' : undefined}
+                          rel={attachmentUrl ? 'noreferrer noopener' : undefined}
+                        >
+                          <strong>{attachment.original_name}</strong>
+                          <span>{buildAttachmentMeta(attachment)}</span>
+                        </a>
+                      )
+                    })}
                   </div>
                 </SectionCard>
               ) : null}
@@ -1065,7 +1079,7 @@ export function ChecklistItemDetailPage() {
             }}
           />
 
-          {lightboxAttachment?.file_path ? (
+          {lightboxAttachment && lightboxAttachmentUrl ? (
             <div className="checklist-evidence-lightbox" role="dialog" aria-modal="true" aria-label={lightboxAttachment.original_name}>
               <button
                 type="button"
@@ -1084,7 +1098,7 @@ export function ChecklistItemDetailPage() {
                 </button>
                 <img
                   className="checklist-evidence-lightbox__image"
-                  src={lightboxAttachment.file_path}
+                  src={lightboxAttachmentUrl}
                   alt={lightboxAttachment.original_name}
                 />
               </div>
