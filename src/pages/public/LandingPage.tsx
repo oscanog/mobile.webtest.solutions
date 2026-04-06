@@ -30,7 +30,7 @@ export function LandingPage() {
           <div className="landing-hero__overlay" />
           <div className="landing-hero__content">
             <LegacyHeroAnimation />
-            <p className="landing-hero__eyebrow">BugCatcher Platform</p>
+            <p className="landing-hero__eyebrow">WebTest Platform</p>
             <h1>
               Track Bugs Like a <span>Pro</span>
             </h1>
@@ -39,7 +39,7 @@ export function LandingPage() {
               <Link to={startPath} className="button button--primary">
                 {isAuthenticated ? 'Continue' : 'Get Started'}
               </Link>
-              <a href="#why-bugcatcher" className="button button--ghost">
+              <a href="#why-webtest" className="button button--ghost">
                 Learn More
               </a>
             </div>
@@ -61,9 +61,9 @@ export function LandingPage() {
           </article>
         </section>
 
-        <section className="landing-features" id="why-bugcatcher">
+        <section className="landing-features" id="why-webtest">
           <div className="landing-section-head">
-            <h2>Why Choose BugCatcher?</h2>
+            <h2>Why Choose WebTest?</h2>
             <p>Everything teams need for clean issue flow.</p>
           </div>
           <div className="landing-feature-grid">
@@ -81,7 +81,7 @@ export function LandingPage() {
       </main>
 
       <footer className="landing-footer">
-        <p>&copy; 2026 BugCatcher. Built for students, by students.</p>
+        <p>&copy; 2026 WebTest. Built for students, by students.</p>
       </footer>
     </div>
   )

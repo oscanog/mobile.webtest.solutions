@@ -9,7 +9,7 @@ export function BrandMark() {
       <span className="brand-mark__icon" aria-hidden="true">
         <img className="brand-mark__logo" src="/favicon.svg" alt="" />
       </span>
-      <span className="brand-mark__text">BugCatcher</span>
+      <span className="brand-mark__text">WebTest</span>
     </div>
   )
 }

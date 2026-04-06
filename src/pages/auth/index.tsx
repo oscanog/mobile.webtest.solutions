@@ -73,7 +73,7 @@ export function LoginPage() {
   return (
     <AuthLayout
       title="Login"
-      subtitle="Use your BugCatcher account"
+      subtitle="Use your WebTest account"
       navLabel="Sign Up"
       navTo="/signup"
       footer={
@@ -184,7 +184,7 @@ export function SignupPage() {
   return (
     <AuthLayout
       title="Sign Up"
-      subtitle="Create your BugCatcher account"
+      subtitle="Create your WebTest account"
       navLabel="Login"
       navTo="/login"
       footer={

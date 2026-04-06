@@ -624,7 +624,7 @@ export function ProfilePage() {
         </div>
       </SectionCard>
 
-      <SectionCard title="Profile Settings" subtitle="Update the account name shown across BugCatcher.">
+      <SectionCard title="Profile Settings" subtitle="Update the account name shown across WebTest.">
         <div className="profile-form-card">
           <p className="body-copy profile-settings-note">Change your username here. Email stays read-only so your login address remains stable.</p>
 
@@ -866,7 +866,7 @@ export function SuperAdminPage() {
 
           <SectionCard title="Runtime State">
             <div className="detail-pairs">
-              <DetailPair label="Assistant" value={runtime.runtime.assistant_name || 'BugCatcher AI'} />
+              <DetailPair label="Assistant" value={runtime.runtime.assistant_name || 'WebTest AI'} />
               <DetailPair
                 label="Default Provider"
                 value={runtime.providers.find((provider) => provider.id === runtime.runtime.default_provider_config_id)?.display_name || 'Not set'}
@@ -890,7 +890,7 @@ export function AIAdminPage() {
     is_enabled: true,
     default_provider_config_id: 0,
     default_model_id: 0,
-    assistant_name: 'BugCatcher AI',
+    assistant_name: 'WebTest AI',
     system_prompt: '',
   })
   const [providerForm, setProviderForm] = useState({
@@ -920,7 +920,7 @@ export function AIAdminPage() {
       is_enabled: result.runtime.is_enabled,
       default_provider_config_id: result.runtime.default_provider_config_id ?? 0,
       default_model_id: result.runtime.default_model_id ?? 0,
-      assistant_name: result.runtime.assistant_name || 'BugCatcher AI',
+      assistant_name: result.runtime.assistant_name || 'WebTest AI',
       system_prompt: result.runtime.system_prompt || '',
     })
     setModelForm((current) => ({
@@ -1044,7 +1044,7 @@ export function AIAdminPage() {
                 label="Default Model"
                 value={models.find((model) => model.id === runtime.runtime.default_model_id)?.display_name || 'Not set'}
               />
-              <DetailPair label="Assistant" value={runtime.runtime.assistant_name || 'BugCatcher AI'} />
+              <DetailPair label="Assistant" value={runtime.runtime.assistant_name || 'WebTest AI'} />
             </div>
           </SectionCard>
 

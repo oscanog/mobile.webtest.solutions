@@ -710,7 +710,7 @@ function getLinkVerificationState({
     return {
       tone: 'error',
       icon: 'x',
-      label: 'Use a full http:// or https:// link so BugCatcher can verify it.',
+      label: 'Use a full http:// or https:// link so WebTest can verify it.',
     }
   }
 
@@ -1247,7 +1247,7 @@ function AIChatConversation({
               ) : (
                 <div className="ai-chat-live-reasoning ai-chat-live-reasoning--placeholder">
                   <span className="ai-chat-live-reasoning__shimmer" aria-hidden="true" />
-                  <p>BugCatcher is working on your checklist draft...</p>
+                  <p>WebTest is working on your checklist draft...</p>
                 </div>
               )}
               {transientDraft.errorMessage ? <small className="ai-chat-bubble__error">{transientDraft.errorMessage}</small> : null}
@@ -1498,7 +1498,7 @@ function AIChatLandingView({
   return (
     <div className="ai-chat-page">
       <AIChatHeader
-        title={bootstrap.assistant_name || 'BugCatcher AI'}
+        title={bootstrap.assistant_name || 'WebTest AI'}
         subtitle="Browse old chats or start a new 5-step draft flow"
         leading={
           <button type="button" className="icon-button" aria-label="Open navigation drawer" onClick={openDrawer}>
@@ -2175,7 +2175,7 @@ function AIChatCreateView({
               <p>
                 {draftForm.sourceMode === 'screenshot'
                   ? 'Upload one screenshot first, then save the matching page link underneath it.'
-                  : 'Paste the exact page BugCatcher should connect to this checklist draft.'}
+                  : 'Paste the exact page WebTest should connect to this checklist draft.'}
               </p>
             </div>
             <div className={`ai-chat-source-banner ${draftForm.sourceMode === 'screenshot' ? 'ai-chat-source-banner--screenshot' : ''}`}>
@@ -2293,7 +2293,7 @@ function AIChatCreateView({
                 </div>
               ) : (
                 <div className="ai-chat-inline-note ai-chat-inline-note--info">
-                  Check the link now so BugCatcher can detect auth walls before you finish the draft setup.
+                  Check the link now so WebTest can detect auth walls before you finish the draft setup.
                 </div>
               )
             ) : null}
@@ -2303,7 +2303,7 @@ function AIChatCreateView({
                   <strong>HTTP Basic Auth required</strong>
                   <p>
                     {draftForm.sourceMode === 'screenshot'
-                      ? 'Enter the credentials for this page. BugCatcher will recheck the link automatically after you finish typing.'
+                      ? 'Enter the credentials for this page. WebTest will recheck the link automatically after you finish typing.'
                       : 'Enter the credentials for this page, then check the link again.'}
                   </p>
                 </div>
@@ -2567,7 +2567,7 @@ function AIChatCreateView({
             />
             {editingThread?.messages.length ? (
               <section className="ai-chat-thread-stage__conversation">
-                <AIChatConversation thread={editingThread} assistantName={bootstrap.assistant_name || 'BugCatcher AI'} emptyTitle="" emptyMessage="" />
+                <AIChatConversation thread={editingThread} assistantName={bootstrap.assistant_name || 'WebTest AI'} emptyTitle="" emptyMessage="" />
               </section>
             ) : null}
             <AIChatComposer
@@ -2786,7 +2786,7 @@ function AIChatThreadView({
     }
 
     const clientRequestId = draftRequest.clientRequestId || createClientRequestId()
-    const assistantName = bootstrap.assistant_name || 'BugCatcher AI'
+    const assistantName = bootstrap.assistant_name || 'WebTest AI'
     draftInFlightRef.current = true
     setPending(true)
     setError('')
@@ -3017,7 +3017,7 @@ function AIChatThreadView({
   return (
     <div className="ai-chat-page ai-chat-page--thread">
       <AIChatHeader
-        title={activeThread?.title || bootstrap.assistant_name || 'BugCatcher AI'}
+        title={activeThread?.title || bootstrap.assistant_name || 'WebTest AI'}
         subtitle={activeThread ? formatThreadContextLabel(activeThread.draft_context) : 'Open an AI draft thread'}
         leading={<button type="button" className="icon-button ai-chat-back-button" aria-label="Back to AI chat landing page" onClick={() => navigate('/app/ai-chat')}><Icon name="arrow" /></button>}
         actions={
@@ -3112,7 +3112,7 @@ function AIChatThreadView({
                 <section ref={conversationScrollRef} className="ai-chat-thread-stage__conversation">
                   <AIChatConversation
                     thread={activeThread}
-                    assistantName={bootstrap.assistant_name || 'BugCatcher AI'}
+                    assistantName={bootstrap.assistant_name || 'WebTest AI'}
                     emptyTitle="No conversation yet"
                     emptyMessage={
                       activeSourceMode === 'link'

@@ -1,17 +1,17 @@
-# BugCatcher Mobile Web
+# WebTest Mobile Web
 
-React + Vite mobile web client for the BugCatcher `super_admin` experience.
+React + Vite mobile web client for the WebTest `super_admin` experience.
 
 ## Product Goal
 
-Build a mobile-first command UI for daily BugCatcher operations with:
+Build a mobile-first command UI for daily WebTest operations with:
 
 - chart-first dashboard summaries
 - concise labels and actions (KISS copy)
-- legacy BugCatcher naming parity
+- legacy WebTest naming parity
 - bottom navigation + side drawer model
 
-This mobile app now uses the live BugCatcher API for authenticated issue, checklist, and AI chat flows, including multipart evidence uploads on supported screens.
+This mobile app now uses the live WebTest API for authenticated issue, checklist, and AI chat flows, including multipart evidence uploads on supported screens.
 
 ## Mobile-First Rule
 

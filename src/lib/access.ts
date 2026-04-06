@@ -105,7 +105,7 @@ export const appRoutes: AppRouteDefinition[] = [
     requiredOrgRole: 'owner',
   },
   { key: 'checklist', path: '/app/checklist', title: 'Checklist', subtitle: 'Batch tracking', navKey: 'utility', requiresAuth: true, requiresOrg: true },
-  { key: 'ai-chat', path: '/app/ai-chat', title: 'AI Chat', subtitle: 'BugCatcher assistant', navKey: 'utility', requiresAuth: true, requiresOrg: true },
+  { key: 'ai-chat', path: '/app/ai-chat', title: 'AI Chat', subtitle: 'WebTest assistant', navKey: 'utility', requiresAuth: true, requiresOrg: true },
   { key: 'settings', path: '/app/settings', title: 'Settings', subtitle: 'App defaults', navKey: 'utility', requiresAuth: true },
 ]
 
