@@ -27,8 +27,8 @@ jobs:
           set -euo pipefail
           ssh -i ~/.ssh/id_ed25519 "${{ secrets.DEPLOY_USER }}@${{ secrets.DEPLOY_HOST }}" <<'EOF'
           set -euo pipefail
-          REPO_DIR=/var/www/bugcatcher-mobileweb
-          REPO_URL=https://github.com/oscanog/bugcatcher-mobileweb.git
+          REPO_DIR=/var/www/mobile.webtest.solutions
+          REPO_URL=https://github.com/oscanog/mobile.webtest.solutions.git
           BRANCH=main
           if [ ! -d "$REPO_DIR/.git" ]; then
             sudo mkdir -p "$(dirname "$REPO_DIR")"
