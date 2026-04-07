@@ -136,8 +136,8 @@ Legacy redirect hostnames:
 
 Server target:
 
-- web root: `/var/www/webtest-mobileweb`
-- nginx config: `/etc/nginx/sites-available/webtest-mobileweb.conf`
+- web root: `/var/www/mobile.webtest.solutions`
+- nginx config: `/etc/nginx/sites-available/mobile.webtest.solutions.conf`
 
 Required GitHub repository secrets:
 
@@ -151,5 +151,5 @@ Workflow:
 1. `npm ci`
 2. `npm run build`
 3. Upload release bundle to the VM
-4. Publish `dist/` to `/var/www/webtest-mobileweb`
+4. Publish `dist/` to `/var/www/mobile.webtest.solutions`
 5. Install Nginx config, issue/reuse TLS certs for both the legacy and new mobile hosts, test config, reload Nginx

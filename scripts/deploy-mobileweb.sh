@@ -2,15 +2,15 @@
 
 set -euo pipefail
 
-APP_NAME="webtest-mobileweb"
+APP_NAME="mobile.webtest.solutions"
 REPO_DIR="${REPO_DIR:-/var/www/${APP_NAME}}"
-REPO_URL="${REPO_URL:-https://github.com/oscanog/webtest-mobileweb.git}"
+REPO_URL="${REPO_URL:-https://github.com/oscanog/mobile.webtest.solutions.git}"
 BRANCH="${BRANCH:-main}"
 WEB_ROOT="${REPO_DIR}/dist"
 NGINX_AVAILABLE="/etc/nginx/sites-available/${APP_NAME}.conf"
 NGINX_ENABLED="/etc/nginx/sites-enabled/${APP_NAME}.conf"
 NGINX_SOURCE="${REPO_DIR}/infra/nginx/webtest-mobileweb.conf"
-CERT_NAME="${APP_NAME}"
+CERT_NAME="webtest-mobileweb"
 CERT_FULLCHAIN="/etc/letsencrypt/live/${CERT_NAME}/fullchain.pem"
 CERT_DOMAINS=(
   "m.webtest.online"
@@ -72,7 +72,7 @@ server {
     listen [::]:80;
     server_name m.webtest.online mobile.webtest.online m.webtest.solutions mobile.webtest.solutions;
 
-    root /var/www/webtest-mobileweb/dist;
+    root /var/www/mobile.webtest.solutions/dist;
     index index.html;
 
     location /.well-known/acme-challenge/ {
