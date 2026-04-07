@@ -131,13 +131,13 @@ Canonical live hostnames:
 
 Legacy redirect hostnames:
 
-- `https://m.bugcatcher.online`
-- `https://mobile.bugcatcher.online`
+- `https://m.webtest.online`
+- `https://mobile.webtest.online`
 
 Server target:
 
-- web root: `/var/www/bugcatcher-mobileweb`
-- nginx config: `/etc/nginx/sites-available/bugcatcher-mobileweb.conf`
+- web root: `/var/www/webtest-mobileweb`
+- nginx config: `/etc/nginx/sites-available/webtest-mobileweb.conf`
 
 Required GitHub repository secrets:
 
@@ -151,5 +151,5 @@ Workflow:
 1. `npm ci`
 2. `npm run build`
 3. Upload release bundle to the VM
-4. Publish `dist/` to `/var/www/bugcatcher-mobileweb`
+4. Publish `dist/` to `/var/www/webtest-mobileweb`
 5. Install Nginx config, issue/reuse TLS certs for both the legacy and new mobile hosts, test config, reload Nginx

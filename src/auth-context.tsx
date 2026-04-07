@@ -137,7 +137,7 @@ interface RefreshResponse {
   }
 }
 
-const AUTH_STORAGE_KEY = 'bugcatcher-mobileweb-auth-session'
+const AUTH_STORAGE_KEY = 'webtest-mobileweb-auth-session'
 export { API_BASE_PATH, getDefaultAppPath, hasOrgRole, hasSystemRole }
 
 const AuthContext = createContext<AuthContextValue | null>(null)

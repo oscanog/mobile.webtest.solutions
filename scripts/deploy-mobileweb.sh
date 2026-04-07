@@ -2,19 +2,19 @@
 
 set -euo pipefail
 
-APP_NAME="bugcatcher-mobileweb"
+APP_NAME="webtest-mobileweb"
 REPO_DIR="${REPO_DIR:-/var/www/${APP_NAME}}"
-REPO_URL="${REPO_URL:-https://github.com/oscanog/bugcatcher-mobileweb.git}"
+REPO_URL="${REPO_URL:-https://github.com/oscanog/webtest-mobileweb.git}"
 BRANCH="${BRANCH:-main}"
 WEB_ROOT="${REPO_DIR}/dist"
 NGINX_AVAILABLE="/etc/nginx/sites-available/${APP_NAME}.conf"
 NGINX_ENABLED="/etc/nginx/sites-enabled/${APP_NAME}.conf"
-NGINX_SOURCE="${REPO_DIR}/infra/nginx/bugcatcher-mobileweb.conf"
+NGINX_SOURCE="${REPO_DIR}/infra/nginx/webtest-mobileweb.conf"
 CERT_NAME="${APP_NAME}"
 CERT_FULLCHAIN="/etc/letsencrypt/live/${CERT_NAME}/fullchain.pem"
 CERT_DOMAINS=(
-  "m.bugcatcher.online"
-  "mobile.bugcatcher.online"
+  "m.webtest.online"
+  "mobile.webtest.online"
   "m.webtest.solutions"
   "mobile.webtest.solutions"
 )
@@ -70,9 +70,9 @@ if [ ! -f "${CERT_FULLCHAIN}" ]; then
 server {
     listen 80;
     listen [::]:80;
-    server_name m.bugcatcher.online mobile.bugcatcher.online m.webtest.solutions mobile.webtest.solutions;
+    server_name m.webtest.online mobile.webtest.online m.webtest.solutions mobile.webtest.solutions;
 
-    root /var/www/bugcatcher-mobileweb/dist;
+    root /var/www/webtest-mobileweb/dist;
     index index.html;
 
     location /.well-known/acme-challenge/ {
@@ -101,8 +101,8 @@ if cert_missing_domain; then
   sudo certbot certonly \
     --webroot \
     -w "${WEB_ROOT}" \
-    -d m.bugcatcher.online \
-    -d mobile.bugcatcher.online \
+    -d m.webtest.online \
+    -d mobile.webtest.online \
     -d m.webtest.solutions \
     -d mobile.webtest.solutions \
     --cert-name "${CERT_NAME}" \

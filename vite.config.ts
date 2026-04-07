@@ -6,7 +6,7 @@ export default defineConfig({
   server: {
     proxy: {
       '/api/v1': {
-        target: 'http://localhost/bugcatcher',
+        target: 'http://localhost/webtest',
         changeOrigin: true,
       },
       '/ws/notifications': {

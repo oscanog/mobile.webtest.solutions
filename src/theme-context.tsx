@@ -3,7 +3,7 @@ import { createContext, useContext, useEffect, useState, type ReactNode } from '
 
 export type ThemeMode = 'light' | 'dark'
 
-const THEME_STORAGE_KEY = 'bugcatcher-theme'
+const THEME_STORAGE_KEY = 'webtest-theme'
 
 interface ThemeContextValue {
   theme: ThemeMode
